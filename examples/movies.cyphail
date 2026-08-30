@@ -1,0 +1,4 @@
+// demo
+MATCH (p:Person) RETURN p.name
+
+CREATE (a:Person {name: "Ana"})

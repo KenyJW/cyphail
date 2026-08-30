@@ -1,0 +1,24 @@
+___________________________________
+*** Horario:10am. Total Grupos:5
+___________________________________
+1-10am --> Motor: 'ArcadeDB'
+2-10am --> Motor: 'Neo4j'
+3-10am --> Motor: 'Memgraph'
+4-10am --> Motor: 'FalkorDB'
+5-10am --> Motor: 'Kuzu'
+___________________________________
+*** Horario:1pm. Total Grupos:5
+___________________________________
+1-1pm --> Motor: 'Neo4j'
+2-1pm --> Motor: 'Memgraph'
+3-1pm --> Motor: 'ArcadeDB'
+4-1pm --> Motor: 'Kuzu'
+5-1pm --> Motor: 'FalkorDB'
+___________________________________
+*** Horario:3pm. Total Grupos:5
+___________________________________
+1-3pm --> Motor: 'Neo4j'
+2-3pm --> Motor: 'FalkorDB'
+3-3pm --> Motor: 'Kuzu'
+4-3pm --> Motor: 'ArcadeDB'
+5-3pm --> Motor: 'Memgraph'
