@@ -3,6 +3,8 @@
  Autor: Kenny Jimenez Wang (Lexer)
  */
 package com.cyphail.lexer;
+public interface Input<T> {
+    T input();
 
-public record InputString(String input, int index) implements Input<String> {
+    int index();
 }

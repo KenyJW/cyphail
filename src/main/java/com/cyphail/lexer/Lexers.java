@@ -1,11 +1,12 @@
 /*
  Cyphail - Grupo 4 (1pm) - EIF400-II-2026-CLoria
  Autor: Kenny Jimenez Wang (Lexer)
- Basado en el modelo de combinadores visto en clase (Work.java, 15/09/2026).
  */
 package com.cyphail.lexer;
 
 import java.util.regex.Pattern;
+import java.util.List;
+import java.util.stream.Stream;
 
 public final class Lexers {
 
@@ -133,17 +134,45 @@ public static Lexer StringLiteral() {
     }
 		
 
-    public static <I, T, R> Parser<I, T, R> Or(Parser<I, T, R> p, Parser<I, T, R> q) {
-        Parser<I, T, R> parser = (I source) -> {
-            var result = p.parse(source);
-            if (!(result instanceof Fail<I, T, R>)) {
-                return result;
-            }
-            return q.parse(source);
-        };
-        return parser;
+    // Un token cualquiera: prueba los cinco lexers en orden.
+    // Keyword() va ANTES que Id(), o MATCH se leeria como identificador.
+    // Los otros tres no compiten: empiezan con comilla, digito o simbolo.
+    public static Lexer anyToken() {
+        Parser<InputString, TokenString, String> combinado =
+                Parsers.Or(Keyword(),
+                        Parsers.Or(StringLiteral(),
+                                Parsers.Or(Number(),
+                                        Parsers.Or(Id(), Symbol()))));
+
+        return combinado::parse;
     }
-	
-	
-	
+
+    // Convierte el texto completo en la lista de tokens, terminada en EOF.
+    // Devuelve Fail si sobra texto que ningun lexer reconocio: el SPEC pide
+    // que los errores se reporten como error, no como un resultado incompleto.
+    public static Result<InputString, List<TokenString>, String> tokenize(String source) {
+        var inicio = new InputString(source, 0);
+
+        return switch (Parsers.Star(anyToken()).parse(inicio)) {
+
+            // Star nunca falla; esta rama existe solo porque el tipo la exige
+            case Fail<InputString, List<TokenString>, String> f ->
+                    new Fail<>(f.reason());
+
+            case Ok<InputString, List<TokenString>, String> ok -> {
+                var resto = ok.rest();
+                var sobra = resto.input().substring(resto.index());
+
+                if (!sobra.isBlank()) {
+                    yield new Fail<>("Unrecognized character '%s' at position %d"
+                            .formatted(sobra.strip().charAt(0), resto.index()));
+                }
+
+                var conEof = Stream.concat(ok.token().stream(),
+                                           Stream.of(new TokenString(TToken.EOF, "")))
+                                   .toList();
+                yield new Ok<>(conEof, resto);
+            }
+        };
+    }
 }

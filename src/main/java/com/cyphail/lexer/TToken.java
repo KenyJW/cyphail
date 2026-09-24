@@ -9,6 +9,9 @@ package com.cyphail.lexer;
 public enum TToken {
     // literales e identificadores
     NUM, ID, STRING,
+	
+	//end of file
+	EOF,
 
     // palabras clave
     MATCH, WHERE, RETURN, AS, CREATE, SET, DELETE, DETACH,

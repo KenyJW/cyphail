@@ -69,8 +69,8 @@ class LexersTest {
 
     @Test
     void keywordMustGoBeforeIdInsideOr() {
-        var correcto = Lexers.Or(Lexers.Keyword(), Lexers.Id());
-        var alReves = Lexers.Or(Lexers.Id(), Lexers.Keyword());
+        var correcto = Parsers.Or(Lexers.Keyword(), Lexers.Id());
+        var alReves = Parsers.Or(Lexers.Id(), Lexers.Keyword());
 
         var bien = assertInstanceOf(Ok.class, correcto.parse(in("MATCH")));
         var mal = assertInstanceOf(Ok.class, alReves.parse(in("MATCH")));
@@ -81,7 +81,7 @@ class LexersTest {
 
     @Test
     void orTriesTheSecondParserWhenTheFirstFails() {
-        var idOrNum = Lexers.Or(Lexers.Id(), Lexers.Number());
+        var idOrNum = Parsers.Or(Lexers.Id(), Lexers.Number());
 
         var id = assertInstanceOf(Ok.class, idOrNum.parse(in("abc")));
         var num = assertInstanceOf(Ok.class, idOrNum.parse(in("123")));
