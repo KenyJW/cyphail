@@ -4,6 +4,8 @@
  */
 package com.cyphail.parser;
 
+import com.cyphail.ast.CreateStatement;
+import com.cyphail.ast.DeleteStatement;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.ReturnItem;
@@ -11,6 +13,8 @@ import com.cyphail.ast.Statement;
 import com.cyphail.lexer.Parser;
 import com.cyphail.lexer.Parsers;
 import com.cyphail.lexer.TToken;
+
+import java.util.stream.Stream;
 
 // Parsers de clausulas y del programa completo.
 public final class StatementParsers {
@@ -49,14 +53,45 @@ public final class StatementParsers {
         return p;
     }
 
+    // Retorna CreateStatement desde CREATE y los patrones separados por coma.
+    public static Parser<InputTokens, Statement, String> createStatement() {
+        var patterns = Parsers.SepBy(PatternParsers.nodePattern(),
+                                     TokenParsers.Token(TToken.COMMA));
+
+        var full = Parsers.And(TokenParsers.Token(TToken.CREATE), patterns);
+
+        Parser<InputTokens, Statement, String> p =
+                Parsers.Map(full, pair -> new CreateStatement(pair.second()));
+        return p;
+    }
+
+    // Retorna DeleteStatement desde un DETACH opcional, DELETE y las expresiones.
+    // TODO: el AST no guarda si venia DETACH; el caso 14 del SPEC lo va a necesitar.
+    public static Parser<InputTokens, Statement, String> deleteStatement() {
+        var targets = Parsers.SepBy(ExpressionParsers.operand(),
+                                    TokenParsers.Token(TToken.COMMA));
+
+        var full = Parsers.And(Parsers.Opt(TokenParsers.Token(TToken.DETACH)),
+                               Parsers.And(TokenParsers.Token(TToken.DELETE), targets));
+
+        Parser<InputTokens, Statement, String> p =
+                Parsers.Map(full, pair -> new DeleteStatement(pair.second().second()));
+        return p;
+    }
+
     // Retorna Program desde las clausulas, el RETURN y el EOF.
     // El EOF es obligatorio: sin el, "MATCH (p) RETURN p basura" pasaria
     // dejando tokens sin leer.
     // TODO: el caso 13 del SPEC (DELETE sin RETURN) exigira hacerlo opcional.
     public static Parser<InputTokens, Program, String> program() {
-        // Some y no Star: sin al menos una clausula, el error del MATCH mal
-        // formado se perdia y el mensaje senalaba el token 0.
-        var clauses = Parsers.Some(matchStatement());
+        // El primero es un MATCH obligatorio ("todo query empieza con un match",
+        // segun los casos de prueba). Exigirlo conserva su mensaje de error.
+        var otherClauses = Parsers.Star(
+                Parsers.Or(matchStatement(),
+                        Parsers.Or(createStatement(), deleteStatement())));
+
+        var clauses = Parsers.Map(Parsers.And(matchStatement(), otherClauses),
+                pair -> Stream.concat(Stream.of(pair.first()), pair.second().stream()).toList());
 
         var items = Parsers.SepBy(returnItem(), TokenParsers.Token(TToken.COMMA));
 
