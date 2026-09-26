@@ -16,6 +16,7 @@ public final class ReplHelp {
                   .about         Show information about the project
                   .use           List available graphs
                   .use <name>    Connect to a graph
+                  .tree <query>  Parse a query and show its AST
                   .exit          Exit
 
                 Helping you!!!

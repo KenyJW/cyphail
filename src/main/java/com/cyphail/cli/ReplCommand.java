@@ -81,6 +81,7 @@ public final class ReplCommand implements Callable<Integer> {
             case ".help" -> ReplHelp.text();
             case ".about" -> AboutInfo.text();
             case ".use" -> GraphCatalog.use(argument);
+            case ".tree" -> com.cyphail.tree.TreeCommand.run(argument);
             default -> "ERROR: unknown REPL command \"" + command + "\". Type \".help\" for a list of commands.";
         };
 }

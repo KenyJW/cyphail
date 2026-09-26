@@ -9,7 +9,7 @@ Nacional de Costa Rica (UNA)**.
 
 | Integrante | Responsabilidad principal |
 |---|---|
-| Kenny | CLI, REPL, interacción con el usuario |
+| Kenny | CLI, REPL, lexer, parser, analizador, `.tree` |
 | Moya | Engine Broker, Fake Engine |
 | Sebastián | Estructura del proyecto Java, Frontend/Router, Handlers — salió del curso después de P1.1 |
 
@@ -18,20 +18,15 @@ Nacional de Costa Rica (UNA)**.
 > se mantiene acreditado a su nombre en los fuentes correspondientes.
 > A partir de P1 el grupo continúa con dos integrantes.
 
-> **Estado: P1.1 (setup inicial formal).** La conexión con el motor
-> todavía es simulada/fake, tal como lo pide el SPEC para este entregable.
-> No se parsea Cypher real, no hay AST, no hay comunicación con Prolog.
+> **Estado: P1 (Lexer/Parser).** El compilador convierte texto de Cyphail
+> en un AST y detecta errores de sintaxis y de variables no definidas. La
+> ejecución de consultas sigue siendo simulada (`FakeEngine`): la conexión
+> real con SWI-Prolog corresponde a un sprint posterior.
 
 ## Prerrequisitos
 
-- **JDK.** El `pom.xml` está configurado para **Java 26**. El correo del
-  profesor sobre P1.1 indica que el Lab normalmente tiene **JDK 24**
-  instalado — **esto está pendiente de confirmar con el profesor** antes
-  de la defensa. Si el Lab solo tiene JDK 24, hay que bajar
-  `maven.compiler.release` a `24` en `pom.xml` (las features usadas —
-  sealed interfaces, records, pattern matching for switch — están
-  finalizadas desde Java 21, así que no se pierde nada al bajar la
-  versión).
+- **JDK 26**, tal como lo exige el SPEC del curso. El `pom.xml` fija
+  `maven.compiler.release` en `26`.
 - **Apache Maven 3.9+.**
 
 ## Compilar
@@ -76,9 +71,7 @@ Type ".exit" to quit
 >>>
 ```
 
-En el prompt `>>>` se pueden escribir dos tipos de cosas:
-
-**a) Comandos al REPL** (empiezan con `.`):
+**Comandos del REPL** (empiezan con `.`):
 
 | Comando | Qué hace |
 |---|---|
@@ -86,22 +79,63 @@ En el prompt `>>>` se pueden escribir dos tipos de cosas:
 | `.about` | Muestra los autores, el curso y la universidad |
 | `.use` | Lista los grafos fingidos disponibles |
 | `.use <nombre>` | Finge conectarse a un grafo |
+| `.tree <query>` | Parsea la consulta y muestra su AST |
 | `.exit` | Sale del REPL |
 
-**b) Supuestos (fake) statements de Cyphail**, por ejemplo:
+Cualquier otra línea se envía al motor fake, que devuelve una tabla o un
+mensaje de confirmación. Enter en blanco no hace nada.
+
+## El comando `.tree`
+
+Es la forma de verificar que el compilador funciona. Parsea la consulta y,
+si puede, recorre el AST mostrándolo con sangría:
 
 ```
->>> MATCH (p:Persona) RETURN p.nombre, p.edad
+>>> .tree MATCH (m:Movie) RETURN m.title, m.year AS year
+Query
+  matchPart
+    nodePattern
+      variable
+        m
+      labels
+        Movie
+  returnPart
+    returnItem
+      propertyAccess
+        variable
+          m
+        property
+          title
+    returnItem
+      propertyAccess
+        variable
+          m
+        property
+          year
+      alias
+        year
 ```
 
-No hay parser real todavía: el motor fake (`FakeEngine`) reconoce un par
-de consultas de ejemplo tal cual y devuelve una tabla fingida; cualquier
-otro `MATCH ... RETURN` cae en una tabla genérica, y `CREATE`/`SET`/
-`DELETE`/`DETACH` devuelven un mensaje de confirmación. Todo esto vive en
-un solo lugar del código (`com.cyphail.engine.FakeEngine`), fácil de
-ubicar y modificar.
+Lo que no está presente se omite: un patrón sin etiquetas no muestra el
+nodo `labels`, y una proyección sin `AS` no muestra `alias`.
 
-Enter en blanco: no hace nada, solo vuelve a mostrar el prompt.
+**Un error de sintaxis no muestra árbol**, solo el mensaje:
+
+```
+>>> .tree MATCH (p RETURN p
+ERROR: Expected RPAREN but found RETURN at token 3
+```
+
+**Un error semántico sí muestra el árbol**, y agrega el error al final: el
+árbol demuestra que el parser funcionó, y el mensaje que el analizador
+también.
+
+```
+>>> .tree MATCH (p:Person) WHERE q.age > 60 RETURN q AS name
+Query
+  ...
+ERROR: Undefined variable 'q'
+```
 
 ## Correr las pruebas
 
@@ -109,43 +143,95 @@ Enter en blanco: no hace nada, solo vuelve a mostrar el prompt.
 mvn test
 ```
 
+Son **165 pruebas**. Entre ellas, `CasosProfesorTest` parsea los once
+casos de referencia del sprint con su texto exacto, y `AnalyzerTest`
+comprueba que los casos 10 y 11 —los de variables no definidas— sean
+rechazados.
+
 ## Arquitectura
 
+El camino de una consulta, de texto a árbol:
+
 ```
-Usuario -> CLI/REPL (Kenny) -> FrontendRouter -> StatementHandler
-        -> EngineBroker -> FakeEngine -> respuesta -> REPL
+texto  ->  Lexers.tokenize            ->  List<TokenString>
+       ->  StatementParsers.program() ->  Program (AST)
+       ->  Analyzer.analyze()         ->  errores de variables
+       ->  TreeBuilder + render()     ->  salida de .tree
 ```
 
-- `com.cyphail.cli` — CLI y REPL (Kenny). Parsea comandos con
-  [picocli](https://picocli.info/), maneja el prompt, los comandos `.` y
-  muestra las respuestas.
-- `com.cyphail.frontend` — `RequestHandler`/`CyphailResponse` (contrato
-  estable que usa el CLI) y `FrontendRouter`/`StatementHandler`/
-  `FrontendFactory` (Sebastián).
-- `com.cyphail.engine` — `EngineBroker`/`EngineResult`/`FakeEngine`
-  (Moya). En P2.1 `FakeEngine` se reemplaza por el broker real hacia
-  SWI-Prolog (MQI) sin tocar las capas de arriba.
+Las dos primeras etapas las encadena `CyphailParser.parse(String)`, que
+devuelve el `Program` o un `Fail` con el mensaje de error.
 
-> Nota de integración: `com.cyphail.frontend` y `com.cyphail.engine` son
-> los archivos entregados por Sebastián y Moya respectivamente, integrados
-> sin modificaciones. Cada fuente indica su autor en el encabezado.
+| Paquete | Contenido |
+|---|---|
+| `com.cyphail.cli` | CLI y REPL, con [picocli](https://picocli.info/) |
+| `com.cyphail.lexer` | Tipos base (`Result`, `Ok`, `Fail`, `Parser`), combinadores genéricos (`Parsers`) y los lexers (`Lexers`) |
+| `com.cyphail.parser` | Parsers sobre tokens: expresiones, patrones, cláusulas y el punto de entrada |
+| `com.cyphail.ast` | El AST: `record` y `sealed interface` |
+| `com.cyphail.analyzer` | Análisis semántico de variables no definidas |
+| `com.cyphail.tree` | Recorrido del AST para `.tree` |
+| `com.cyphail.frontend` | Contrato entre el CLI y el motor (Sebastián) |
+| `com.cyphail.engine` | `EngineBroker`/`FakeEngine` (Moya) |
+
+### Sobre el lexer y el parser
+
+Se construyeron a mano con **combinadores propios**, sin generadores de
+parsers ni librerías de parsing, siguiendo el modelo visto en clase
+(`Work.java`, sesiones del 15 y 22 de septiembre).
+
+Un lexer es una función, no un objeto: `Lexers.Number()` no reconoce un
+número, sino que **fabrica la lambda** que sabe reconocerlo. Cada parser
+devuelve `Ok(resultado, resto)` o `Fail(razón)`, y la entrada
+(`InputString`, `InputTokens`) es inmutable: avanzar significa construir
+una entrada nueva. Por eso un parser que falla no deja nada consumido y el
+siguiente puede intentar desde la misma posición.
+
+Los combinadores genéricos, en `com.cyphail.lexer.Parsers`, sirven tanto
+sobre texto como sobre tokens:
+
+| Combinador | Qué hace |
+|---|---|
+| `Or(p, q)` | prueba `p`; si falla, prueba `q` |
+| `Map(p, f)` | transforma el resultado de `p` |
+| `And(p, q)` | `p` y después `q`, desde donde `p` quedó |
+| `Opt(p)` | cero o una vez; nunca falla |
+| `Star(p)` | cero o más veces; nunca falla |
+| `Some(p)` | una o más veces |
+| `SepBy(p, sep)` | uno o más `p` separados por `sep` |
+
+## Limitaciones conocidas
+
+Están documentadas con pruebas donde corresponde:
+
+- **Patrones de relación** (`-[:FOLLOWS]->`) no se soportan. El lexer los
+  tokeniza, pero el AST no tiene una clase para representarlos.
+- **`DETACH`** se reconoce pero se descarta: `DeleteStatement` no guarda
+  si venía o no.
+- **`{}`** (mapa de propiedades vacío) es válido en la gramática y hoy es
+  rechazado.
+- **Operadores `=`, `<=`, `>=`**: el lexer los reconoce, pero
+  `ComparisonOperator` solo tiene `<`, `>` y `<>`.
+- **El `RETURN` es obligatorio**; la gramática lo declara opcional.
 
 ## Créditos y fuentes
 
-- Arquitectura general y casos de uso: SPEC del curso
-  (`docs/EIF400-II-2026-SPEC_Inicial_Cyphail-CLoria.pdf` y
-  `docs/EIF400-II-2026-Arquitectura General Cyphail-CLoria.pdf`).
-- Formato del REPL, comandos `.help`/`.about`/`.use`/`.exit` y ejemplos de
-  salida: correo del profesor sobre el alcance de P1.1 (agosto 2026).
+- Arquitectura general, casos de uso y gramática: SPEC del curso
+  (`docs/EIF400-II-2026-SPEC_Inicial_Cyphail-CLoria.pdf`,
+  `docs/EIF400-II-2026-Arquitectura General Cyphail-CLoria.pdf` y
+  `EIF400-II-2026-GrammarCypherSprint1.g4`).
+- Modelo de combinadores (`Result`/`Ok`/`Fail`, `Parser`, `Lexer`,
+  `InputString`, `Or`): código de clase del profesor, `Work.java`,
+  sesiones 18 y 19.
+- Casos de prueba de referencia del sprint P1, publicados por el profesor.
 - Librería de parsing de argumentos de línea de comandos:
   [picocli](https://picocli.info/) (recomendada por el SPEC).
 - Pruebas: [JUnit 5](https://junit.org/junit5/).
 
 ## Declaración sobre el uso de IA
 
-Se usó IA (Claude Code, modelo Claude Sonnet 5, Anthropic) como parte del
-desarrollo de este avance. El SPEC del curso autoriza el uso de IA para
-**entender y estudiar**, pero prohíbe que una IA agéntica genere el
-proyecto de forma "zero coding". El equipo está aclarando con el profesor
-el alcance exacto de uso permitido para este entregable; los prompts
-usados están disponibles si se requieren para la revisión.
+Se usó IA (Claude Code, Anthropic) como apoyo durante el desarrollo de
+este avance, tanto para estudiar los conceptos como para escribir y
+revisar código. El SPEC del curso autoriza el uso de IA para **entender y
+estudiar**, pero prohíbe que una IA agéntica genere el proyecto de forma
+"zero coding". El tema se conversó con el profesor. Los prompts usados
+están disponibles si se requieren para la revisión.
