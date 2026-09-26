@@ -88,36 +88,42 @@ mensaje de confirmación. Enter en blanco no hace nada.
 ## El comando `.tree`
 
 Es la forma de verificar que el compilador funciona. Parsea la consulta y,
-si puede, recorre el AST mostrándolo con sangría:
+si puede, recorre el AST y lo imprime en el formato del SPEC de P1: bloques
+`Query`/`Match`/`Where`/`Updates`/`Return`, con las **expresiones en
+pre-orden**.
 
 ```
->>> .tree MATCH (m:Movie) RETURN m.title, m.year AS year
-Query
-  matchPart
-    nodePattern
-      variable
-        m
-      labels
-        Movie
-  returnPart
-    returnItem
-      propertyAccess
-        variable
-          m
-        property
-          title
-    returnItem
-      propertyAccess
-        variable
-          m
-        property
-          year
-      alias
-        year
+>>> .tree MATCH (m:Movie) WHERE m.year > 1990 RETURN m.title AS title, m.year AS year
+Query{
+  Match: {
+    Patterns: [
+      PatternNode:{
+        var: m
+        labels: [ Movie ]
+        properties: []
+      }
+    ]
+  }
+  Where: {
+    Expr: (> (. m year) 1990)
+  }
+  Updates:[]
+  Return:{
+    Projection:{
+      Items:[
+        {as (. m title) title}
+        {as (. m year) year}
+      ]
+      Modifiers:[]
+    }
+  }
+}
 ```
 
-Lo que no está presente se omite: un patrón sin etiquetas no muestra el
-nodo `labels`, y una proyección sin `AS` no muestra `alias`.
+Las expresiones se escriben en prefijo: un acceso a propiedad es
+`(. m year)` y una comparación `(> izquierda derecha)`. El bloque `Where`
+se omite cuando no hay `WHERE`; `CREATE` y `DELETE` aparecen dentro de
+`Updates`; y una proyección sin `AS` se imprime como `{(. m title)}`.
 
 **Un error de sintaxis no muestra árbol**, solo el mensaje:
 
@@ -128,12 +134,14 @@ ERROR: Expected RPAREN but found RETURN at token 3
 
 **Un error semántico sí muestra el árbol**, y agrega el error al final: el
 árbol demuestra que el parser funcionó, y el mensaje que el analizador
-también.
+también. Como aclara el SPEC, `title` en `m.title` no cuenta como variable
+no definida, porque es una propiedad de `m`.
 
 ```
 >>> .tree MATCH (p:Person) WHERE q.age > 60 RETURN q AS name
-Query
+Query{
   ...
+}
 ERROR: Undefined variable 'q'
 ```
 
@@ -198,6 +206,21 @@ sobre texto como sobre tokens:
 | `Star(p)` | cero o más veces; nunca falla |
 | `Some(p)` | una o más veces |
 | `SepBy(p, sep)` | uno o más `p` separados por `sep` |
+
+## Alcance del lexer frente al del parser
+
+El lexer implementa la **tabla de tokens completa de la gramática
+publicada** (`EIF400-II-2026-GrammarCypherSprint1.g4`), incluidos los de
+relaciones (`-`, `->`, `<-`, `[`, `]`), rangos (`*`, `..`) y las palabras
+`SET`, `NOT`, `AND`, `OR`, `COUNT`, `SAVE` y `LOAD`.
+
+El parser de P1 consume **un subconjunto**: el necesario para
+`MATCH`/`WHERE`/`CREATE`/`DELETE`/`RETURN`, que es el alcance de este
+sprint. Los demás tokens se reconocen pero todavía ninguna regla los pide.
+
+Es una decisión deliberada: así un `MATCH (p)-[:R]->(q)` falla en el
+parser, diciendo qué se esperaba, en vez de fallar en el lexer con un
+"carácter no reconocido", que le diría menos al usuario.
 
 ## Limitaciones conocidas
 

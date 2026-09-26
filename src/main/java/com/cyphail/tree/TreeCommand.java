@@ -29,7 +29,7 @@ public final class TreeCommand {
 
             case Ok<?, ?, ?> ok -> {
                 var program = (Program) ok.token();
-                var tree = TreeBuilder.of(program).render();
+                var tree = AstPrinter.print(program);
 
                 yield Analyzer.analyze(program)
                         .map(error -> tree + "ERROR: " + error)
