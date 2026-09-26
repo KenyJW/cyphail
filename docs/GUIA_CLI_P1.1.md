@@ -10,8 +10,8 @@ código por dentro, clase por clase.
 
 ### Prerrequisitos
 
-- JDK (el `pom.xml` está en Java 26 — verificar con el profesor si el
-  Lab exige 24, ver nota en el README).
+- JDK 26 (el `pom.xml` fija `maven.compiler.release` en `26`, como
+  exige el SPEC).
 - Apache Maven 3.9+.
 
 ### Compilar
@@ -201,12 +201,12 @@ Tiene dos constructores:
    nombre del comando, ver abajo) e imprime lo que devuelve.
 7. Si no: la manda a `handler.handle(linea)` (cruza a la capa de
    Frontend) e imprime la `CyphailResponse` — con `ERROR: ` de prefijo
-   si `success()` es falso.
+   si `state()` es falso.
 8. Vuelve al paso 2, hasta que el stream se acaba o se rompe el loop.
 9. Al salir del loop, imprime `Bye!`.
 
 `dispatchReplCommand` separa el comando del argumento buscando el primer
-espacio (`.use amigos` → comando `.use`, argumento `amigos`), y usa un
+espacio (`.use dragon` → comando `.use`, argumento `dragon`), y usa un
 `switch` de Java (permitido porque el profesor autorizó paradigma
 OOP-imperativo para este sprint) para mandarlo a `ReplHelp.text()`,
 `AboutInfo.text()`, o `GraphCatalog.use(argumento)`. Cualquier comando
@@ -243,7 +243,10 @@ interfaz funcional de un solo método (`handle(String) ->
 CyphailResponse`), así que cualquier implementación — incluso un lambda —
 sirve para los tests. `CyphailResponse` es un `record` inmutable de dos
 campos con dos factory methods (`ok`/`error`) para no tener que escribir
-`new CyphailResponse(true, ...)` en todos lados.
+`new CyphailResponse(true, ...)` en todos lados. Sus dos campos son
+`state` (booleano) y `message`; ojo que `EngineResult`, del lado del
+motor, usa `success`/`output` — son records distintos, de capas
+distintas, y por eso renombrar uno no obliga a tocar el otro.
 
 ### `com.cyphail.frontend.FrontendRouter`
 
@@ -317,7 +320,7 @@ Usuario teclea `MATCH (p:Persona) RETURN p.nombre, p.edad` en el REPL:
    `CyphailResponse.ok(result.output())`.
 8. `FrontendRouter` devuelve esa misma respuesta tal cual (no la toca).
 9. De vuelta en `ReplCommand.call()`: `printResponse(response)` ve
-   `success() == true` → `out.println(response.message())` — se imprime
+   `state() == true` → `out.println(response.message())` — se imprime
    la tabla completa.
 10. Se vuelve a imprimir el prompt `>>> ` y el loop sigue.
 
