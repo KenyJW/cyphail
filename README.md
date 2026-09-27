@@ -10,7 +10,7 @@ Nacional de Costa Rica (UNA)**.
 | Integrante | Responsabilidad principal |
 |---|---|
 | Kenny | CLI, REPL, lexer, parser, analizador, `.tree` |
-| Moya | Engine Broker, Fake Engine |
+| Moya | Engine Broker, Fake Engine, JSON fake y generación de código Prolog |
 | Sebastián | Estructura del proyecto Java, Frontend/Router, Handlers — salió del curso después de P1.1 |
 
 > Sebastián alcanzó a entregar su parte (`com.cyphail.frontend`) antes de
@@ -19,9 +19,10 @@ Nacional de Costa Rica (UNA)**.
 > A partir de P1 el grupo continúa con dos integrantes.
 
 > **Estado: P1 (Lexer/Parser).** El compilador convierte texto de Cyphail
-> en un AST y detecta errores de sintaxis y de variables no definidas. La
-> ejecución de consultas sigue siendo simulada (`FakeEngine`): la conexión
-> real con SWI-Prolog corresponde a un sprint posterior.
+> en un AST, detecta errores de sintaxis y variables no definidas, y genera
+> una representación textual de Prolog. La ejecución continúa simulada
+> mediante `FakeEngine`; la conexión real con SWI-Prolog corresponde a un
+> sprint posterior.
 
 ## Prerrequisitos
 
@@ -29,40 +30,71 @@ Nacional de Costa Rica (UNA)**.
   `maven.compiler.release` en `26`.
 - **Apache Maven 3.9+.**
 
-## Compilar
+## Compilar el proyecto
 
-Desde la raíz del proyecto, en una consola (CMD, PowerShell o bash):
+Desde la raíz del proyecto, en una consola CMD, PowerShell o bash:
 
 ```bash
 mvn clean package
 ```
 
-Esto compila, corre las pruebas y genera un jar ejecutable en
-`target/cyphail.jar`.
+Esto compila el proyecto, ejecuta las pruebas y genera un JAR ejecutable:
+
+```text
+target/cyphail.jar
+```
 
 ## Ejecutar
 
-### Opción 1: directamente con `java`
+### Opción 1: directamente con Java
 
 ```bash
 java -jar target/cyphail.jar repl
 java -jar target/cyphail.jar run ./examples/movies.cyphail
-java -jar target/cyphail.jar compile ./examples/movies.cyphail --out ./target/movies.pl
+java -jar target/cyphail.jar compile ./examples/codegen-demo.cyphail --out ./target/codegen-demo.pl
 java -jar target/cyphail.jar help
 ```
 
-### Opción 2: con el wrapper `cyphail.bat` (Windows)
+### Opción 2: con el wrapper `cyphail.bat` en Windows
 
 ```bat
 cyphail.bat repl
 ```
 
-`cyphail.bat` solo verifica que `java` esté disponible y reenvía los
-argumentos al jar — no tiene lógica adicional.
+`cyphail.bat` solamente verifica que `java` esté disponible y reenvía los
+argumentos al JAR. No contiene lógica del motor ni del compilador.
+
+## Compilar Cyphail a Prolog
+
+El comando `compile` procesa un archivo de Cyphail mediante el lexer,
+parser, analizador semántico y generador de código Prolog.
+
+```bash
+java -jar target/cyphail.jar compile examples/codegen-demo.cyphail --out target/codegen-demo.pl
+```
+
+Ejemplo de entrada:
+
+```cypher
+MATCH (m:Movie)
+WHERE m.year > 2000
+RETURN m.title AS title,
+       m.year AS year
+```
+
+Ejemplo del código generado:
+
+```prolog
+query([match([node(var('m'), ['Movie'], [])], compare(property_access('m', 'year'), '>', 2000))], [return_item(property_access('m', 'title'), 'title'), return_item(property_access('m', 'year'), 'year')]).
+```
+
+Si la consulta es válida, se genera el archivo `.pl`. Si existe un error
+sintáctico o una variable no definida, se muestra el error y no se genera
+el archivo de salida.
 
 ## El REPL
 
-```
+```text
 > cyphail repl
 Welcome to Cyphail-04-1pm v.0.1. August 2026. ESCINF/UNA EIF400-II-2026
 Visit www.whatiscyphail.com for more information
@@ -71,7 +103,7 @@ Type ".exit" to quit
 >>>
 ```
 
-**Comandos del REPL** (empiezan con `.`):
+### Comandos del REPL
 
 | Comando | Qué hace |
 |---|---|
@@ -82,17 +114,45 @@ Type ".exit" to quit
 | `.tree <query>` | Parsea la consulta y muestra su AST |
 | `.exit` | Sale del REPL |
 
-Cualquier otra línea se envía al motor fake, que devuelve una tabla o un
-mensaje de confirmación. Enter en blanco no hace nada.
+Cualquier otra línea se procesa como un estatuto de Cyphail. Enter en
+blanco no hace nada.
+
+Antes de llegar al motor, cada consulta pasa por el parser, el análisis
+semántico y el generador de código. Una consulta con errores sintácticos o
+variables no definidas se rechaza antes de llegar al `FakeEngine`.
+
+## Datos fake externos
+
+Las respuestas simuladas se encuentran en:
+
+```text
+data/fake-responses.json
+```
+
+El `FakeEngine` lee este archivo cada vez que ejecuta una consulta. Por
+eso los datos pueden modificarse mientras el programa está funcionando y
+los cambios se reflejan en el REPL sin recompilar el JAR.
+
+Gson convierte el contenido del archivo en `FakeResponseCatalog` y
+`FakeResponseData`. La clase `JsonFakeDataSource` busca la respuesta
+asociada con la consulta normalizada.
+
+Si no existe una respuesta específica en el JSON, el motor produce una
+respuesta fake genérica.
+
+El JSON contiene respuestas para las consultas anteriores de P1.1 y para
+los casos válidos de referencia del profesor. Los casos con variables no
+definidas son rechazados por el analizador antes de consultar los datos
+fake.
 
 ## El comando `.tree`
 
-Es la forma de verificar que el compilador funciona. Parsea la consulta y,
-si puede, recorre el AST y lo imprime en el formato del SPEC de P1: bloques
-`Query`/`Match`/`Where`/`Updates`/`Return`, con las **expresiones en
-pre-orden**.
+Es la forma de verificar que el compilador construye correctamente el
+AST. Parsea la consulta y recorre el árbol para imprimirlo en el formato
+del SPEC de P1: bloques `Query`, `Match`, `Where`, `Updates` y `Return`,
+con las expresiones en preorden.
 
-```
+```text
 >>> .tree MATCH (m:Movie) WHERE m.year > 1990 RETURN m.title AS title, m.year AS year
 Query{
   Match: {
@@ -120,24 +180,29 @@ Query{
 }
 ```
 
-Las expresiones se escriben en prefijo: un acceso a propiedad es
-`(. m year)` y una comparación `(> izquierda derecha)`. El bloque `Where`
-se omite cuando no hay `WHERE`; `CREATE` y `DELETE` aparecen dentro de
-`Updates`; y una proyección sin `AS` se imprime como `{(. m title)}`.
+Las expresiones se escriben en prefijo. Un acceso a propiedad se muestra
+como `(. m year)` y una comparación como
+`(> izquierda derecha)`.
 
-**Un error de sintaxis no muestra árbol**, solo el mensaje:
+El bloque `Where` se omite cuando no existe `WHERE`. `CREATE` y `DELETE`
+aparecen dentro de `Updates`. Una proyección sin `AS` se imprime como
+`{(. m title)}`.
 
-```
+### Error sintáctico
+
+Un error de sintaxis no produce un árbol:
+
+```text
 >>> .tree MATCH (p RETURN p
 ERROR: Expected RPAREN but found RETURN at token 3
 ```
 
-**Un error semántico sí muestra el árbol**, y agrega el error al final: el
-árbol demuestra que el parser funcionó, y el mensaje que el analizador
-también. Como aclara el SPEC, `title` en `m.title` no cuenta como variable
-no definida, porque es una propiedad de `m`.
+### Error semántico
 
-```
+Un error semántico sí permite mostrar el árbol porque el parser logró
+construirlo. Después se agrega el error encontrado por el analizador:
+
+```text
 >>> .tree MATCH (p:Person) WHERE q.age > 60 RETURN q AS name
 Query{
   ...
@@ -145,116 +210,188 @@ Query{
 ERROR: Undefined variable 'q'
 ```
 
+En `m.title`, `m` es la variable y `title` es una propiedad. Por eso el
+analizador solamente exige que `m` haya sido definida.
+
 ## Correr las pruebas
 
 ```bash
 mvn test
 ```
 
-Son **165 pruebas**. Entre ellas, `CasosProfesorTest` parsea los once
-casos de referencia del sprint con su texto exacto, y `AnalyzerTest`
-comprueba que los casos 10 y 11 —los de variables no definidas— sean
-rechazados.
+El proyecto contiene **177 pruebas automatizadas**.
+
+Entre ellas:
+
+- `CasosProfesorTest` parsea los once casos de referencia del sprint.
+- `AnalyzerTest` comprueba la detección de variables no definidas.
+- `PrologCodeGeneratorTest` verifica la generación de términos Prolog.
+- `CompilerEngineBrokerTest` comprueba el pipeline completo.
+- `JsonFakeDataSourceTest` verifica que los cambios del JSON se leen sin
+  recompilar.
+- `CompileCommandTest` verifica la creación del archivo `.pl` y el manejo
+  de errores semánticos.
 
 ## Arquitectura
 
-El camino de una consulta, de texto a árbol:
+El camino completo de una consulta es:
 
-```
-texto  ->  Lexers.tokenize            ->  List<TokenString>
-       ->  StatementParsers.program() ->  Program (AST)
-       ->  Analyzer.analyze()         ->  errores de variables
-       ->  TreeBuilder + render()     ->  salida de .tree
+```text
+Texto Cyphail
+  -> Lexer
+  -> Parser
+  -> Program (AST)
+  -> Analyzer
+  -> PrologCodeGenerator
+  -> CompilerEngineBroker
+  -> FakeEngine
+  -> data/fake-responses.json
+  -> respuesta del REPL
 ```
 
-Las dos primeras etapas las encadena `CyphailParser.parse(String)`, que
-devuelve el `Program` o un `Fail` con el mensaje de error.
+`CyphailParser.parse(String)` conecta el lexer y el parser. Devuelve un
+`Program` cuando la consulta es sintácticamente válida o un `Fail` con el
+mensaje del error.
+
+`CompilerEngineBroker` funciona como decorador del broker. Recibe la
+consulta, ejecuta el parser y el analizador, genera el código Prolog y
+finalmente delega la ejecución al motor fake.
+
+El `FakeEngine` utiliza la consulta original para encontrar la respuesta
+en el archivo JSON. El código Prolog generado queda disponible para que
+un broker real pueda enviarlo a SWI-Prolog en un sprint posterior.
 
 | Paquete | Contenido |
 |---|---|
-| `com.cyphail.cli` | CLI y REPL, con [picocli](https://picocli.info/) |
-| `com.cyphail.lexer` | Tipos base (`Result`, `Ok`, `Fail`, `Parser`), combinadores genéricos (`Parsers`) y los lexers (`Lexers`) |
-| `com.cyphail.parser` | Parsers sobre tokens: expresiones, patrones, cláusulas y el punto de entrada |
-| `com.cyphail.ast` | El AST: `record` y `sealed interface` |
-| `com.cyphail.analyzer` | Análisis semántico de variables no definidas |
-| `com.cyphail.tree` | Recorrido del AST para `.tree` |
-| `com.cyphail.frontend` | Contrato entre el CLI y el motor (Sebastián) |
-| `com.cyphail.engine` | `EngineBroker`/`FakeEngine` (Moya) |
+| `com.cyphail.cli` | CLI, REPL y comandos construidos con Picocli |
+| `com.cyphail.lexer` | Tipos base, combinadores y tokenización |
+| `com.cyphail.parser` | Parsers de expresiones, patrones y cláusulas |
+| `com.cyphail.ast` | AST implementado con `record` y `sealed interface` |
+| `com.cyphail.analyzer` | Análisis semántico de variables |
+| `com.cyphail.tree` | Recorrido e impresión del AST para `.tree` |
+| `com.cyphail.codegen` | Conversión del AST a texto Prolog |
+| `com.cyphail.frontend` | Contrato entre el CLI y el motor |
+| `com.cyphail.engine` | Contratos del broker, pipeline compilador y motor fake |
+| `com.cyphail.engine.data` | Modelos y lectura dinámica de respuestas JSON |
 
-### Sobre el lexer y el parser
+## Sobre el lexer y el parser
 
-Se construyeron a mano con **combinadores propios**, sin generadores de
-parsers ni librerías de parsing, siguiendo el modelo visto en clase
-(`Work.java`, sesiones del 15 y 22 de septiembre).
+El lexer y el parser se construyeron manualmente con combinadores propios,
+sin generadores de parsers ni librerías externas de parsing, siguiendo el
+modelo visto en clase.
 
-Un lexer es una función, no un objeto: `Lexers.Number()` no reconoce un
-número, sino que **fabrica la lambda** que sabe reconocerlo. Cada parser
-devuelve `Ok(resultado, resto)` o `Fail(razón)`, y la entrada
-(`InputString`, `InputTokens`) es inmutable: avanzar significa construir
-una entrada nueva. Por eso un parser que falla no deja nada consumido y el
-siguiente puede intentar desde la misma posición.
+Un lexer es una función. Por ejemplo, `Lexers.Number()` fabrica la función
+que sabe reconocer un número. Cada parser devuelve:
 
-Los combinadores genéricos, en `com.cyphail.lexer.Parsers`, sirven tanto
-sobre texto como sobre tokens:
+- `Ok(resultado, resto)` cuando reconoce la entrada.
+- `Fail(razón)` cuando no puede reconocerla.
+
+La entrada, representada por `InputString` o `InputTokens`, es inmutable.
+Avanzar significa construir una nueva entrada. Por eso un parser que falla
+no altera el valor original y otro parser puede intentar desde la misma
+posición.
+
+Los combinadores genéricos sirven tanto para texto como para tokens:
 
 | Combinador | Qué hace |
 |---|---|
-| `Or(p, q)` | prueba `p`; si falla, prueba `q` |
-| `Map(p, f)` | transforma el resultado de `p` |
-| `And(p, q)` | `p` y después `q`, desde donde `p` quedó |
-| `Opt(p)` | cero o una vez; nunca falla |
-| `Star(p)` | cero o más veces; nunca falla |
-| `Some(p)` | una o más veces |
-| `SepBy(p, sep)` | uno o más `p` separados por `sep` |
+| `Or(p, q)` | Prueba `p`; si falla, prueba `q` |
+| `Map(p, f)` | Transforma el resultado de `p` |
+| `And(p, q)` | Ejecuta `p` y después `q` |
+| `Opt(p)` | Reconoce cero o una aparición |
+| `Star(p)` | Reconoce cero o más apariciones |
+| `Some(p)` | Reconoce una o más apariciones |
+| `SepBy(p, sep)` | Reconoce elementos separados por un separador |
 
-## Alcance del lexer frente al del parser
+## Generación de código Prolog
 
-El lexer implementa la **tabla de tokens completa de la gramática
-publicada** (`EIF400-II-2026-GrammarCypherSprint1.g4`), incluidos los de
-relaciones (`-`, `->`, `<-`, `[`, `]`), rangos (`*`, `..`) y las palabras
-`SET`, `NOT`, `AND`, `OR`, `COUNT`, `SAVE` y `LOAD`.
+`PrologCodeGenerator` recorre el AST mediante pattern matching sobre las
+interfaces selladas y los records.
 
-El parser de P1 consume **un subconjunto**: el necesario para
-`MATCH`/`WHERE`/`CREATE`/`DELETE`/`RETURN`, que es el alcance de este
-sprint. Los demás tokens se reconocen pero todavía ninguna regla los pide.
+Ejemplos de traducción:
 
-Es una decisión deliberada: así un `MATCH (p)-[:R]->(q)` falla en el
-parser, diciendo qué se esperaba, en vez de fallar en el lexer con un
-"carácter no reconocido", que le diría menos al usuario.
+| AST | Representación Prolog |
+|---|---|
+| Variable `m` | `var('m')` |
+| Propiedad `m.title` | `property_access('m', 'title')` |
+| Número `2000` | `2000` |
+| String `"adult"` | `'adult'` |
+| Comparación `m.year > 2000` | `compare(property_access('m', 'year'), '>', 2000)` |
+| Nodo `(m:Movie)` | `node(var('m'), ['Movie'], [])` |
+
+El generador no guarda estado ni modifica el AST. Recibe un `Program` y
+devuelve un nuevo `String`, por lo que funciona como una transformación
+pura.
+
+## Alcance del lexer frente al parser
+
+El lexer implementa la tabla de tokens completa de la gramática publicada,
+incluidos tokens de relaciones, rangos y palabras reservadas.
+
+El parser de P1 consume el subconjunto requerido para:
+
+- `MATCH`
+- `WHERE`
+- `CREATE`
+- `DELETE`
+- `RETURN`
+
+Los demás tokens se reconocen, pero todavía no existe una regla del parser
+que los consuma.
+
+Esto permite que una relación no soportada falle en el parser con un
+mensaje relacionado con la sintaxis esperada, en lugar de fallar en el
+lexer como un carácter desconocido.
 
 ## Limitaciones conocidas
 
-Están documentadas con pruebas donde corresponde:
+- Los patrones de relación como `-[:FOLLOWS]->` todavía no forman parte
+  del AST de P1.
+- `DETACH` se reconoce, pero `DeleteStatement` no conserva esa información.
+- El mapa de propiedades vacío `{}` todavía es rechazado.
+- Los operadores `=`, `<=` y `>=` son reconocidos por el lexer, pero
+  `ComparisonOperator` solamente incluye `<`, `>` y `<>`.
+- `RETURN` es obligatorio en el parser actual.
+- El motor real de SWI-Prolog todavía no está conectado; durante P1 se usa
+  un motor fake con respuestas JSON.
 
-- **Patrones de relación** (`-[:FOLLOWS]->`) no se soportan. El lexer los
-  tokeniza, pero el AST no tiene una clase para representarlos.
-- **`DETACH`** se reconoce pero se descarta: `DeleteStatement` no guarda
-  si venía o no.
-- **`{}`** (mapa de propiedades vacío) es válido en la gramática y hoy es
-  rechazado.
-- **Operadores `=`, `<=`, `>=`**: el lexer los reconoce, pero
-  `ComparisonOperator` solo tiene `<`, `>` y `<>`.
-- **El `RETURN` es obligatorio**; la gramática lo declara opcional.
+## Principios y decisiones de diseño
+
+- **Responsabilidad única:** lexer, parser, analyzer, Codegen, broker y
+  motor fake tienen responsabilidades separadas.
+- **Abierto/cerrado:** `EngineBroker` permite agregar posteriormente un
+  broker real sin modificar el frontend.
+- **Inversión de dependencias:** el frontend depende de `EngineBroker`, no
+  directamente de una implementación de SWI-Prolog.
+- **Decorator:** `CompilerEngineBroker` agrega compilación y validación
+  antes de delegar al motor.
+- **Factory:** `FrontendFactory` construye y conecta los componentes.
+- **Tipos algebraicos:** el AST utiliza `sealed interface`, `record` y
+  pattern matching exhaustivo.
+- **Inmutabilidad:** las etapas producen nuevos valores y evitan modificar
+  los objetos de entrada.
 
 ## Créditos y fuentes
 
-- Arquitectura general, casos de uso y gramática: SPEC del curso
-  (`docs/EIF400-II-2026-SPEC_Inicial_Cyphail-CLoria.pdf`,
-  `docs/EIF400-II-2026-Arquitectura General Cyphail-CLoria.pdf` y
-  `EIF400-II-2026-GrammarCypherSprint1.g4`).
-- Modelo de combinadores (`Result`/`Ok`/`Fail`, `Parser`, `Lexer`,
-  `InputString`, `Or`): código de clase del profesor, `Work.java`,
-  sesiones 18 y 19.
-- Casos de prueba de referencia del sprint P1, publicados por el profesor.
-- Librería de parsing de argumentos de línea de comandos:
-  [picocli](https://picocli.info/) (recomendada por el SPEC).
-- Pruebas: [JUnit 5](https://junit.org/junit5/).
+- Arquitectura, casos de uso y gramática: documentos SPEC suministrados
+  por el profesor.
+- Modelo de combinadores `Result`, `Ok`, `Fail`, `Parser`, `Lexer`,
+  `InputString` y `Or`: código y sesiones del curso.
+- Casos de prueba de referencia del sprint P1 publicados por el profesor.
+- Procesamiento de argumentos de consola:
+  [Picocli](https://picocli.info/).
+- Manejo de respuestas fake en JSON:
+  [Gson](https://github.com/google/gson).
+- Pruebas automatizadas:
+  [JUnit 5](https://junit.org/junit5/).
 
 ## Declaración sobre el uso de IA
 
-Se usó IA (Claude Code, Anthropic) como apoyo durante el desarrollo de
-este avance, tanto para estudiar los conceptos como para escribir y
-revisar código. El SPEC del curso autoriza el uso de IA para **entender y
-estudiar**, pero prohíbe que una IA agéntica genere el proyecto de forma
-"zero coding". El tema se conversó con el profesor. Los prompts usados
-están disponibles si se requieren para la revisión.
+Se usó IA, incluyendo Claude Code de Anthropic y ChatGPT de OpenAI, como
+apoyo durante el desarrollo para estudiar conceptos, proponer
+implementaciones y revisar código.
+
+Cada cambio fue integrado, revisado y comprobado mediante pruebas
+automatizadas y ejecución manual. El uso de IA se realizó como apoyo al
+proceso de aprendizaje y no sustituye la comprensión ni la defensa del
+código por parte de los integrantes.
