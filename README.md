@@ -391,6 +391,10 @@ Se usó IA, incluyendo Claude Code de Anthropic y ChatGPT de OpenAI, como
 apoyo durante el desarrollo para estudiar conceptos, proponer
 implementaciones y revisar código.
 
+Los comentarios del código fuente se redactaron con ayuda de IA, con el
+fin de mantener una documentación interna uniforme y estructurada en todo
+el proyecto.
+
 Cada cambio fue integrado, revisado y comprobado mediante pruebas
 automatizadas y ejecución manual. El uso de IA se realizó como apoyo al
 proceso de aprendizaje y no sustituye la comprensión ni la defensa del
