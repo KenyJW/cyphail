@@ -1,6 +1,7 @@
 /*
  Cyphail - Grupo 4 (1pm) - EIF400-II-2026-CLoria
  Autor: Kenny Jimenez Wang (Lexer)
+ Combinadores genericos, segun el modelo visto en clase (Work.java, 22/09/2026).
  */
 package com.cyphail.lexer;
 
