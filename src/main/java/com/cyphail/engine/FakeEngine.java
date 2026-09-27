@@ -11,40 +11,11 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class FakeEngine implements EngineBroker {
 
     private final JsonFakeDataSource dataSource;
-
-    private static final Map<String, String> CANNED_QUERIES = Map.of(
-            "MATCH (p:Persona) RETURN p.nombre, p.edad",
-            table(
-                    List.of("p.nombre", "p.edad"),
-                    List.of(
-                            List.of("\"Ana\"", "28"),
-                            List.of("\"Luis\"", "31"),
-                            List.of("\"Carlos\"", "25"),
-                            List.of("\"Beatriz\"", "34"),
-                            List.of("\"David\"", "29"),
-                            List.of("\"Elena\"", "22")
-                    )
-            ) + "\nOK. Query available after 42 ms.",
-
-            "MATCH (p1:Persona)-[r:AMIGO_DE]->(p2:Persona) RETURN p1.nombre AS Persona, type(r) AS Relacion, p2.nombre AS AmigoDe",
-            table(
-                    List.of("Persona", "Relacion", "AmigoDe"),
-                    List.of(
-                            List.of("\"Ana\"", "\"AMIGO_DE\"", "\"Luis\""),
-                            List.of("\"Ana\"", "\"AMIGO_DE\"", "\"Beatriz\""),
-                            List.of("\"Luis\"", "\"AMIGO_DE\"", "\"Carlos\""),
-                            List.of("\"Luis\"", "\"AMIGO_DE\"", "\"David\""),
-                            List.of("\"Carlos\"", "\"AMIGO_DE\"", "\"Elena\""),
-                            List.of("\"Beatriz\"", "\"AMIGO_DE\"", "\"Elena\"")
-                    )
-            ) + "\nOK. Query resolved after 666 ms."
-    );
 
     public FakeEngine() {
         this.dataSource = new JsonFakeDataSource(
@@ -70,11 +41,6 @@ public final class FakeEngine implements EngineBroker {
             return EngineResult.error(
                     "Could not read fake data: " + exception.getMessage()
             );
-        }
-
-        String canned = CANNED_QUERIES.get(trimmed);
-        if (canned != null) {
-            return EngineResult.ok(canned);
         }
 
         String upper = trimmed.toUpperCase(Locale.ROOT);
