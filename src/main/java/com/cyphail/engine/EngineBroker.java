@@ -6,5 +6,13 @@ package com.cyphail.engine;
 
 @FunctionalInterface
 public interface EngineBroker {
+
     EngineResult execute(String statement);
+
+    default EngineResult execute(
+            String originalStatement,
+            String generatedCode
+    ) {
+        return execute(originalStatement);
+    }
 }
