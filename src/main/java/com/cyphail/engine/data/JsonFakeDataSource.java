@@ -1,3 +1,8 @@
+/*
+ Cyphail - Grupo 4 (1pm) - EIF400-II-2026-CLoria
+ Autor: Jose Moya Perez (JSON Fake Data Source)
+ */
+
 package com.cyphail.engine.data;
 
 import com.google.gson.Gson;
