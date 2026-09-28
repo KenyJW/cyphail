@@ -1,4 +1,4 @@
 // demo
 MATCH (p:Person) RETURN p.name
 
-CREATE (a:Person {name: "Ana"})
+MATCH (p:Person) CREATE (a:Person {name: "Ana"}) RETURN p.name
