@@ -389,7 +389,33 @@ lexer como un carácter desconocido.
 
 Se usó IA, incluyendo Claude Code de Anthropic y ChatGPT de OpenAI, como
 apoyo durante el desarrollo para estudiar conceptos, proponer
-implementaciones y revisar código.
+implementaciones y revisar código. El uso concreto varió según la etapa:
+
+- **Tipos base del lexer** (`Result`, `Ok`, `Fail`, `Input`, `InputString`,
+  `Parser`, `Lexer`, `TToken`, `TokenString`): siguen el modelo de
+  combinadores presentado por el profesor en clase, y así se acredita en el
+  encabezado de cada archivo.
+- **Lexers concretos**: `Number()` e `Id()` reproducen el código de clase.
+  `Symbol()` y `StringLiteral()` los escribió Kenny Jiménez Wang, con la IA
+  usada para revisar la expresión regular y explicar errores de compilación.
+  `Keyword()`, `anyToken()` y `tokenize()` se escribieron con ayuda directa
+  de la IA.
+- **AST** (los `record` y `sealed interface` de `com.cyphail.ast`): escritos
+  por Kenny Jiménez Wang a partir de la gramática publicada.
+- **Combinadores genéricos**: `Or` proviene del código de clase. `Map`,
+  `And`, `Opt`, `Star`, `Some` y `SepBy` se construyeron con ayuda de la IA;
+  `Star` corresponde al reto planteado en clase de implementarlo de forma
+  funcional.
+- **Parser** (expresiones, patrones y sentencias), **Analyzer** y
+  `AstPrinter`: se construyeron mediante un proceso guiado, en el que la IA
+  explicaba el concepto y un ejemplo antes de escribir el código. En algunos
+  tramos de esta etapa el código se transcribió directamente de lo sugerido
+  por la IA sin haberlo comprendido del todo en el momento; esas partes se
+  están repasando activamente antes de la defensa del 29/9.
+- **Comentarios del código fuente**: redactados con ayuda de IA, con el fin
+  de mantener una documentación interna uniforme en todo el proyecto.
+
+Lo anterior cubre los componentes desarrollados por Kenny Jiménez Wang.
 
 Cada cambio fue integrado, revisado y comprobado mediante pruebas
 automatizadas y ejecución manual. El uso de IA se realizó como apoyo al
