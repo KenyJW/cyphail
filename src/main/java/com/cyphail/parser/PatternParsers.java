@@ -4,8 +4,12 @@
  */
 package com.cyphail.parser;
 
+import com.cyphail.ast.Direction;
 import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.PathPattern;
+import com.cyphail.ast.PatternStep;
 import com.cyphail.ast.PropertyEntry;
+import com.cyphail.ast.RelationshipPattern;
 import com.cyphail.lexer.Parser;
 import com.cyphail.lexer.Parsers;
 import com.cyphail.lexer.TToken;
@@ -13,6 +17,7 @@ import com.cyphail.lexer.TokenString;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
 
 // Parsers de patrones: propiedades y, mas adelante, el node pattern completo.
 public final class PatternParsers {
@@ -82,5 +87,68 @@ public final class PatternParsers {
         // Sin Label: nodePattern es una secuencia, no una alternativa, y sus
         // errores internos ("Expected RPAREN...") son mas precisos que una etiqueta.
         return Parsers.Map(full, pair -> pair.second().first());
+    }
+
+    // ---------- 4d. Patron de relacion (P2) ----------
+
+    // Retorna el cuerpo [r:TIPO {props}] como una funcion que espera la direccion.
+    // La direccion no esta dentro de los corchetes: la aportan las flechas de afuera.
+    // Opt(label()) y no Star(): una relacion tiene un solo tipo, un nodo varias etiquetas.
+    private static Parser<InputTokens, Function<Direction, RelationshipPattern>, String> relationshipBody() {
+        var typeAndProperties = Parsers.And(Parsers.Opt(label()),
+                                            Parsers.Opt(propertyMap()));
+
+        var inside = Parsers.And(variableName(), typeAndProperties);
+
+        var insideAndClose = Parsers.And(inside, TokenParsers.Token(TToken.RBRACKET));
+
+        var full = Parsers.And(TokenParsers.Token(TToken.LBRACKET), insideAndClose);
+
+        return Parsers.Map(full, pair -> {
+            var parts = pair.second().first();
+            return direction -> new RelationshipPattern(
+                    parts.first(),
+                    parts.second().first(),
+                    parts.second().second().orElse(List.of()),
+                    direction);
+        });
+    }
+
+    // Arma una de las tres formas: token de apertura, cuerpo, token de cierre.
+    // Al cuerpo le aplica la direccion que corresponde a esas flechas.
+    private static Parser<InputTokens, RelationshipPattern, String> arrows(
+            TToken open, TToken close, Direction direction) {
+
+        var bodyAndClose = Parsers.And(relationshipBody(), TokenParsers.Token(close));
+
+        var full = Parsers.And(TokenParsers.Token(open), bodyAndClose);
+
+        return Parsers.Map(full, pair -> pair.second().first().apply(direction));
+    }
+
+    // Retorna RelationshipPattern en cualquiera de sus tres formas.
+    // Las tres se excluyen por sus tokens de los extremos, y cada una exige
+    // los dos, asi que el orden dentro del Or no cambia el resultado.
+    public static Parser<InputTokens, RelationshipPattern, String> relationshipPattern() {
+        var out = arrows(TToken.DASH, TToken.ARROW_RIGHT, Direction.OUT);
+        var in = arrows(TToken.ARROW_LEFT, TToken.DASH, Direction.IN);
+        var none = arrows(TToken.DASH, TToken.DASH, Direction.NONE);
+
+        return Parsers.Or(out, Parsers.Or(in, none));
+    }
+
+    // ---------- 4e. Camino completo (P2) ----------
+
+    // Retorna PathPattern: un nodo inicial y cero o mas pasos.
+    // Un nodo suelto (a) es un camino con la lista de pasos vacia.
+    // El paso es seguro dentro de Star porque exige corchetes y parentesis:
+    // nunca tiene exito consumiendo cero tokens.
+    public static Parser<InputTokens, PathPattern, String> pathPattern() {
+        var step = Parsers.Map(Parsers.And(relationshipPattern(), nodePattern()),
+                pair -> new PatternStep(pair.first(), pair.second()));
+
+        var full = Parsers.And(nodePattern(), Parsers.Star(step));
+
+        return Parsers.Map(full, pair -> new PathPattern(pair.first(), pair.second()));
     }
 }

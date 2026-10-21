@@ -4,9 +4,12 @@
  */
 package com.cyphail.parser;
 
+import com.cyphail.ast.Direction;
 import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.NumberLiteral;
 import com.cyphail.ast.PropertyEntry;
+import com.cyphail.ast.RelationshipPattern;
 import com.cyphail.ast.StringLiteral;
 import com.cyphail.ast.VariableExpression;
 import com.cyphail.lexer.Fail;
@@ -124,5 +127,121 @@ class PatternParsersTest {
     @Test
     void nodePatternFailsWithoutClosingParen() {
         assertInstanceOf(Fail.class, PatternParsers.nodePattern().parse(tokens("(p")));
+    }
+
+    // ---------- 4d. Patron de relacion (P2) ----------
+
+    @Test
+    void relationshipWithTypeOnlyPointsOut() {
+        var ok = assertInstanceOf(Ok.class,
+                PatternParsers.relationshipPattern().parse(tokens("-[:amigo]->")));
+
+        assertEquals(new RelationshipPattern(Optional.empty(), Optional.of("amigo"),
+                        List.of(), Direction.OUT),
+                ok.token());
+    }
+
+    @Test
+    void relationshipWithVariableTypeAndProperties() {
+        var ok = assertInstanceOf(Ok.class,
+                PatternParsers.relationshipPattern().parse(tokens("-[r:T {rol: \"Dev\"}]->")));
+
+        assertEquals(new RelationshipPattern(Optional.of("r"), Optional.of("T"),
+                        List.of(new PropertyEntry("rol", new StringLiteral("Dev"))),
+                        Direction.OUT),
+                ok.token());
+    }
+
+    @Test
+    void relationshipCanPointIn() {
+        var ok = assertInstanceOf(Ok.class,
+                PatternParsers.relationshipPattern().parse(tokens("<-[:T]-")));
+
+        assertEquals(new RelationshipPattern(Optional.empty(), Optional.of("T"),
+                        List.of(), Direction.IN),
+                ok.token());
+    }
+
+    @Test
+    void relationshipWithoutArrowsHasNoDirection() {
+        // el SPEC lo usa: -[r]- sin tipo y sin flecha
+        var ok = assertInstanceOf(Ok.class,
+                PatternParsers.relationshipPattern().parse(tokens("-[r]-")));
+
+        assertEquals(new RelationshipPattern(Optional.of("r"), Optional.empty(),
+                        List.of(), Direction.NONE),
+                ok.token());
+    }
+
+    @Test
+    void theFailedAlternativeLeavesTheInputIntact() {
+        // OUT se prueba primero y falla al esperar "->" despues de consumir
+        // -[:T]. Como un fallo no consume nada, NONE arranca de cero y acierta.
+        var ok = assertInstanceOf(Ok.class,
+                PatternParsers.relationshipPattern().parse(tokens("-[:T]-")));
+
+        assertEquals(Direction.NONE, ((RelationshipPattern) ok.token()).direction());
+    }
+
+    @Test
+    void relationshipFailsWithoutClosingBracket() {
+        assertInstanceOf(Fail.class, PatternParsers.relationshipPattern().parse(tokens("-[r:T->")));
+    }
+
+    // ---------- 4e. Camino completo (P2) ----------
+
+    private static PathPattern path(String source) {
+        var ok = assertInstanceOf(Ok.class, PatternParsers.pathPattern().parse(tokens(source)));
+        return (PathPattern) ok.token();
+    }
+
+    @Test
+    void aLoneNodeIsAPathWithoutSteps() {
+        var camino = path("(a)");
+
+        assertEquals(Optional.of("a"), camino.start().variable());
+        assertEquals(List.of(), camino.steps());
+    }
+
+    @Test
+    void pathWithOneStep() {
+        var camino = path("(a)-[:R]->(b)");
+
+        assertEquals(Optional.of("a"), camino.start().variable());
+        assertEquals(1, camino.steps().size());
+        assertEquals(Direction.OUT, camino.steps().get(0).relationship().direction());
+        assertEquals(Optional.of("R"), camino.steps().get(0).relationship().type());
+        assertEquals(Optional.of("b"), camino.steps().get(0).node().variable());
+    }
+
+    @Test
+    void pathWithTwoStepsKeepsEachDirection() {
+        var camino = path("(a)-[:R]->(b)<-[:S]-(c)");
+
+        assertEquals(2, camino.steps().size());
+        assertEquals(Direction.OUT, camino.steps().get(0).relationship().direction());
+        assertEquals(Direction.IN, camino.steps().get(1).relationship().direction());
+        assertEquals(Optional.of("b"), camino.steps().get(0).node().variable());
+        assertEquals(Optional.of("c"), camino.steps().get(1).node().variable());
+    }
+
+    @Test
+    void pathKeepsLabelsAndPropertiesOfItsNodes() {
+        var camino = path("(p:Persona {id: 1})-[r:TRABAJA_EN]->(e:Empresa)");
+
+        assertEquals(List.of("Persona"), camino.start().labels());
+        assertEquals(List.of(new PropertyEntry("id", new NumberLiteral(1))),
+                camino.start().properties());
+        assertEquals(Optional.of("r"), camino.steps().get(0).relationship().variable());
+        assertEquals(List.of("Empresa"), camino.steps().get(0).node().labels());
+    }
+
+    @Test
+    void pathStopsBeforeAStepWithoutArrivalNode() {
+        // la relacion sin nodo de llegada: el Star para, y queda "-[:R]->" sin leer
+        var ok = assertInstanceOf(Ok.class, PatternParsers.pathPattern().parse(tokens("(a)-[:R]->")));
+
+        assertEquals(List.of(), ((PathPattern) ok.token()).steps());
+        assertEquals(3, ((InputTokens) ok.rest()).index());   // solo consumio ( a ), y dejo -[:R]->
     }
 }
