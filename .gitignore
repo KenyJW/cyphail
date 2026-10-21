@@ -5,3 +5,7 @@ dependency-reduced-pom.xml
 *.iml
 .vscode/
 .claude/
+
+# entregables generados (bundle y zip de cada sprint)
+*.bundle
+*.zip
