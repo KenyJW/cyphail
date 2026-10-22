@@ -144,4 +144,43 @@ class LexersTest {
     void stringLiteralFailsWhenNotClosed() {
         assertInstanceOf(Fail.class, Lexers.StringLiteral().parse(in("\"Ana")));
     }
+
+    // ---------- StringLiteral con comilla simple (P2) ----------
+
+    @Test
+    void stringLiteralAcceptsSingleQuotes() {
+        var ok = assertInstanceOf(Ok.class, Lexers.StringLiteral().parse(in("'Bill Gates'")));
+        assertEquals(new TokenString(TToken.STRING, "Bill Gates"), ok.token());
+    }
+
+    @Test
+    void singleQuotedStringCanHoldADoubleQuote() {
+        var ok = assertInstanceOf(Ok.class, Lexers.StringLiteral().parse(in("'O\"Brien'")));
+        assertEquals(new TokenString(TToken.STRING, "O\"Brien"), ok.token());
+    }
+
+    @Test
+    void doubleQuotedStringCanHoldASingleQuote() {
+        var ok = assertInstanceOf(Ok.class, Lexers.StringLiteral().parse(in("\"O'Brien\"")));
+        assertEquals(new TokenString(TToken.STRING, "O'Brien"), ok.token());
+    }
+
+    @Test
+    void theEmptyStringIsValid() {
+        var ok = assertInstanceOf(Ok.class, Lexers.StringLiteral().parse(in("''")));
+        assertEquals(new TokenString(TToken.STRING, ""), ok.token());
+    }
+
+    @Test
+    void singleQuotedStringFailsWhenNotClosed() {
+        assertInstanceOf(Fail.class, Lexers.StringLiteral().parse(in("'Ana")));
+    }
+
+    @Test
+    void aStringAfterATabOrNewlineIsStillFound() {
+        // el \s* de la regex: si fuera "\s" de una sola barra, Java lo leeria
+        // como un espacio literal y esto fallaria.
+        assertInstanceOf(Ok.class, Lexers.StringLiteral().parse(in("\t\"Ana\"")));
+        assertInstanceOf(Ok.class, Lexers.StringLiteral().parse(in("\n\"Ana\"")));
+    }
 }

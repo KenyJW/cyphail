@@ -114,8 +114,11 @@ public final class Lexers {
     return lexer;
 }
 
-public static Lexer StringLiteral() {
-                var re_str = Pattern.compile("\\s*\"(?<token>[^\"]*)\"");
+    // Acepta "..." y '...' (P2). Los dos dan el mismo token STRING, con el
+    // contenido sin comillas, asi que el parser y el AST no se enteran.
+    public static Lexer StringLiteral() {
+        // Dos alternativas, dos nombres de grupo: Java no permite repetirlos.
+        var re_str = Pattern.compile("\\s*(?:\"(?<doble>[^\"]*)\"|'(?<simple>[^']*)')");
 
         Lexer lexer = (InputString source) -> {
             var matcher = re_str.matcher(source.input());
@@ -125,7 +128,9 @@ public static Lexer StringLiteral() {
                 return new Fail<>("No string could be matched");
             }
 
-            var token = matcher.group("token");
+            // group() da null si esa alternativa no participo.
+            var doble = matcher.group("doble");
+            var token = doble != null ? doble : matcher.group("simple");
             return new Ok<>(new TokenString(TToken.STRING, token),
                             new InputString(source.input(), matcher.end()));
         };
