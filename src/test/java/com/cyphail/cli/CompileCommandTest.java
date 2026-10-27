@@ -1,3 +1,8 @@
+/*
+ Cyphail - Grupo 4 (1pm) - EIF400-II-2026-CLoria
+ Autor: Jose Moya Perez (Compile Command Tests)
+ */
+
 package com.cyphail.cli;
 
 import org.junit.jupiter.api.Test;
