@@ -17,6 +17,7 @@ public final class ReplHelp {
                   .use           List available graphs
                   .use <name>    Connect to a graph
                   .tree <query>  Parse a query and show its AST
+                  .load <file>   Run every statement of a .cyphail file
                   .exit          Exit
 
                 Helping you!!!

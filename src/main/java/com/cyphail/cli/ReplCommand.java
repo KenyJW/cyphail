@@ -94,6 +94,7 @@ public final class ReplCommand implements Callable<Integer> {
             case ".about" -> AboutInfo.text();
             case ".use" -> GraphCatalog.use(argument);
             case ".tree" -> com.cyphail.tree.TreeCommand.run(argument);
+            case ".load" -> LoadCommand.run(argument, handler);
             default -> "ERROR: unknown REPL command \"" + command + "\". Type \".help\" for a list of commands.";
         };
 }
@@ -105,10 +106,12 @@ public final class ReplCommand implements Callable<Integer> {
     }
 
     private void printResponse(CyphailResponse response) {
-        if (response.state()) {
-            out.println(response.message());
-        } else {
-            out.println("ERROR: " + response.message());
-        }
+        out.println(format(response));
+    }
+
+    // Como se ve una respuesta. Lo usa tambien .load, para que un estatuto
+    // se lea igual venga de la consola o de un archivo.
+    static String format(CyphailResponse response) {
+        return response.state() ? response.message() : "ERROR: " + response.message();
     }
 }
