@@ -11,12 +11,12 @@ Nacional de Costa Rica (UNA)**.
 |---|---|
 | Kenny | CLI, REPL, lexer, parser, analizador, `.tree` |
 | Moya | Engine Broker, Fake Engine, JSON fake y generación de código Prolog |
-| Sebastián | Estructura del proyecto Java, Frontend/Router, Handlers — salió del curso después de P1.1 |
+| Sebastián | Estructura del proyecto Java, Frontend/Router, Handlers — se retiró del curso antes de P1.1 |
 
 > Sebastián alcanzó a entregar su parte (`com.cyphail.frontend`) antes de
 > salir del curso, por lo que su código forma parte de este entregable y
 > se mantiene acreditado a su nombre en los fuentes correspondientes.
-> A partir de P1 el grupo continúa con dos integrantes.
+> Desde P1.1 el grupo trabaja con dos integrantes.
 
 > **Estado: P1 (Lexer/Parser).** El compilador convierte texto de Cyphail
 > en un AST, detecta errores de sintaxis y variables no definidas, y genera

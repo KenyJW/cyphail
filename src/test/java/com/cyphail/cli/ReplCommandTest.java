@@ -30,7 +30,8 @@ class ReplCommandTest {
 
     @Test
     void dispatchesNonDotLinesUntilExit() throws Exception {
-        String script = "MATCH (p:Person) RETURN p.name\n.exit\nesto no deberia llegar\n";
+        // desde P2 un estatuto termina en ';'
+        String script = "MATCH (p:Person) RETURN p.name;\n.exit\nesto no deberia llegar\n";
         List<String> received = new ArrayList<>();
 
         var result = run(script, input -> {
@@ -104,7 +105,7 @@ class ReplCommandTest {
 
     @Test
     void failedResponseIsPrefixedWithError() throws Exception {
-        var result = run("MATCH broken\n.exit\n", input -> CyphailResponse.error("bad statement"));
+        var result = run("MATCH broken;\n.exit\n", input -> CyphailResponse.error("bad statement"));
 
         assertTrue(result.output().contains("ERROR: bad statement"));
     }

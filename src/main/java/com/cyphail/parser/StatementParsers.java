@@ -97,8 +97,12 @@ public final class StatementParsers {
 
         var returnPart = Parsers.And(TokenParsers.Token(TToken.RETURN), items);
 
-        var full = Parsers.And(clauses,
-                               Parsers.And(returnPart, TokenParsers.Token(TToken.EOF)));
+        // El ';' final es opcional: en el REPL de P2 cierra el estatuto, pero
+        // un archivo o un .tree pueden traerlo o no. Se descarta al construir.
+        var end = Parsers.And(Parsers.Opt(TokenParsers.Token(TToken.SEMICOLON)),
+                              TokenParsers.Token(TToken.EOF));
+
+        var full = Parsers.And(clauses, Parsers.And(returnPart, end));
 
         return Parsers.Map(full, pair -> new Program(pair.first(),
                                                      pair.second().first().second()));

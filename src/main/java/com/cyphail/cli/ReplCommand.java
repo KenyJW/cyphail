@@ -19,7 +19,6 @@ import java.util.concurrent.Callable;
 @Command(name = "repl", description = "Starts Cyphail REPL.")
 public final class ReplCommand implements Callable<Integer> {
 
-    private static final String PROMPT = ">>> ";
 
     private final RequestHandler handler;
     private final InputStream in;
@@ -39,28 +38,41 @@ public final class ReplCommand implements Callable<Integer> {
     public Integer call() throws IOException {
         out.println(Banner.welcome());
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
-            String line;
-            prompt();
-            while ((line = reader.readLine()) != null) {
-                String trimmed = line.strip();
-
-                if (trimmed.isEmpty()) {
-                    prompt();
-                    continue;
-                }
-                if (trimmed.equalsIgnoreCase(".exit")) {
-                    break;
-                }
-                if (trimmed.startsWith(".")) {
-                    out.println(dispatchReplCommand(trimmed));
-                } else {
-                    printResponse(handler.handle(trimmed));
-                }
-                prompt();
-            }
+            loop(reader, "");
         }
         out.println("Bye!");
         return 0;
+    }
+
+    // Lee una linea, decide con ReplInput y sigue con lo que quedo pendiente.
+    // El pendiente viaja como parametro: no hay variable que se reasigne.
+    private void loop(BufferedReader reader, String pending) throws IOException {
+        prompt(pending);
+
+        var line = reader.readLine();
+        if (line == null) {
+            warnIfIncomplete(pending);
+            return;
+        }
+
+        var feed = ReplInput.feed(pending, line);
+        if (feed.isExit()) {
+            warnIfIncomplete(pending);
+            return;
+        }
+
+        feed.command().ifPresent(command -> out.println(dispatchReplCommand(command)));
+        feed.statements().forEach(statement -> printResponse(handler.handle(statement)));
+
+        loop(reader, feed.pending());
+    }
+
+    // Un estatuto a medias no se ejecuta, pero se avisa: callarlo haria
+    // pensar que la consulta si corrio.
+    private void warnIfIncomplete(String pending) {
+        if (!pending.isBlank()) {
+            out.println("ERROR: incomplete statement discarded (missing \";\")");
+        }
     }
 
     private String dispatchReplCommand(String input) {
@@ -87,8 +99,8 @@ public final class ReplCommand implements Callable<Integer> {
 }
 
 
-    private void prompt() {
-        out.print(PROMPT);
+    private void prompt(String pending) {
+        out.print(ReplInput.prompt(pending));
         out.flush();
     }
 

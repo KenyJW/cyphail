@@ -156,4 +156,29 @@ class StatementParsersTest {
         assertInstanceOf(Fail.class, StatementParsers.program().parse(
                 tokens("MATCH (p:Person)-[:FOLLOWS]->(q:Person) RETURN p.name, q.name")));
     }
+
+    // ---------- el ; final (P2) ----------
+
+    @Test
+    void aTrailingSemicolonIsAccepted() {
+        var ok = assertInstanceOf(Ok.class,
+                StatementParsers.program().parse(tokens("MATCH (p:Person) RETURN p;")));
+
+        assertEquals(1, ((com.cyphail.ast.Program) ok.token()).clauses().size());
+    }
+
+    @Test
+    void theSemicolonIsOptional() {
+        var conPuntoYComa = StatementParsers.program().parse(tokens("MATCH (p:Person) RETURN p;"));
+        var sinPuntoYComa = StatementParsers.program().parse(tokens("MATCH (p:Person) RETURN p"));
+
+        // el mismo AST en los dos casos: el ; se descarta
+        assertEquals(((Ok<?, ?, ?>) conPuntoYComa).token(), ((Ok<?, ?, ?>) sinPuntoYComa).token());
+    }
+
+    @Test
+    void garbageAfterTheSemicolonStillFails() {
+        assertInstanceOf(Fail.class,
+                StatementParsers.program().parse(tokens("MATCH (p:Person) RETURN p; basura")));
+    }
 }
