@@ -54,8 +54,7 @@ public final class LoadCommand {
         }
 
         var results = split.statements().stream()
-                .map(handler::handle)
-                .map(ReplCommand::format);
+                .map(statement -> runStatement(statement, handler));
 
         // Lo que quedo sin ';' no se ejecuta, pero se avisa.
         var pending = split.rest().isBlank()
@@ -63,6 +62,15 @@ public final class LoadCommand {
                 : Stream.of("ERROR: incomplete statement at the end of the file (missing \";\")");
 
         return Stream.concat(results, pending).collect(Collectors.joining(NL));
+    }
+
+    // Un estatuto que revienta no corta la corrida: se reporta y sigue el resto.
+    private static String runStatement(String statement, RequestHandler handler) {
+        try {
+            return ReplCommand.format(handler.handle(statement));
+        } catch (RuntimeException problem) {
+            return "ERROR: " + ReplCommand.message(problem);
+        }
     }
 
     // Descarta las lineas que empiezan con //, como ya lo hace RunCommand.

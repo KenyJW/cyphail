@@ -62,7 +62,7 @@ public final class ReplCommand implements Callable<Integer> {
         }
 
         feed.command().ifPresent(command -> out.println(dispatchReplCommand(command)));
-        feed.statements().forEach(statement -> printResponse(handler.handle(statement)));
+        feed.statements().forEach(statement -> out.println(run(statement)));
 
         loop(reader, feed.pending());
     }
@@ -103,6 +103,22 @@ public final class ReplCommand implements Callable<Integer> {
     private void prompt(String pending) {
         out.print(ReplInput.prompt(pending));
         out.flush();
+    }
+
+    // Un fallo inesperado del motor se muestra como error y la sesion sigue.
+    // Sin esto, cualquier excepcion imprime un stack trace y mata el REPL.
+    private String run(String statement) {
+        try {
+            return format(handler.handle(statement));
+        } catch (RuntimeException problem) {
+            return "ERROR: " + message(problem);
+        }
+    }
+
+    static String message(RuntimeException problem) {
+        return problem.getMessage() == null
+                ? problem.getClass().getSimpleName()
+                : problem.getMessage();
     }
 
     private void printResponse(CyphailResponse response) {

@@ -4,6 +4,7 @@
  */
 package com.cyphail.ast;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -12,7 +13,9 @@ import java.util.Map;
 public record VariableTable(Map<String, VariableKind> variables) {
 
     public VariableTable {
-        variables = Map.copyOf(variables);
+        // Map.copyOf NO conserva el orden de insercion: su iteracion cambia
+        // entre ejecuciones de la JVM. LinkedHashMap si lo conserva.
+        variables = Collections.unmodifiableMap(new LinkedHashMap<>(variables));
     }
 
     public static VariableTable of(LinkedHashMap<String, VariableKind> variables) {

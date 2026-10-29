@@ -67,12 +67,15 @@ public final class PrologCodeGenerator {
         };
     }
 
-    // PENDIENTE (Moya): por ahora un camino se aplana a sus nodos, asi los
-    // queries sin relaciones generan el mismo termino que antes. Las
-    // relaciones del camino todavia no se traducen a Prolog.
+    // PENDIENTE (Moya): un camino sin pasos genera el mismo termino que
+    // antes. Uno con relaciones falla a proposito: aplanarlo en silencio
+    // produciria Prolog que dice otra cosa, y encima diria OK.
     private static Stream<NodePattern> nodesOf(PathPattern path) {
-        return Stream.concat(Stream.of(path.start()),
-                             path.steps().stream().map(step -> step.node()));
+        if (!path.steps().isEmpty()) {
+            throw new UnsupportedOperationException(
+                    "relationships: pendiente de definir el termino Prolog");
+        }
+        return Stream.of(path.start());
     }
 
     private static String matchStatement(MatchStatement match) {
