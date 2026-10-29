@@ -7,5 +7,6 @@ package com.cyphail.ast;
 public enum ComparisonOperator{
 	LESS_THAN, //<
 	GREATER_THAN, //>
-	NOT_EQUALS//<>
+	NOT_EQUALS, //<>
+	EQUALS //=
 }

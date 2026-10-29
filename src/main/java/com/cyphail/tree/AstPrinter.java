@@ -4,19 +4,25 @@
  */
 package com.cyphail.tree;
 
+import com.cyphail.ast.AndExpression;
 import com.cyphail.ast.BooleanLiteral;
 import com.cyphail.ast.ComparisonExpression;
 import com.cyphail.ast.ComparisonOperator;
 import com.cyphail.ast.CreateStatement;
+import com.cyphail.ast.DecimalLiteral;
 import com.cyphail.ast.DeleteStatement;
 import com.cyphail.ast.Expression;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.PathPattern;
+import com.cyphail.ast.RelationshipPattern;
 import com.cyphail.ast.NumberLiteral;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
 import com.cyphail.ast.PropertyEntry;
+import com.cyphail.ast.RemoveStatement;
 import com.cyphail.ast.ReturnItem;
+import com.cyphail.ast.SetStatement;
 import com.cyphail.ast.Statement;
 import com.cyphail.ast.StringLiteral;
 import com.cyphail.ast.VariableExpression;
@@ -61,6 +67,8 @@ public final class AstPrinter {
 
             case NumberLiteral number -> String.valueOf(number.value());
 
+            case DecimalLiteral decimal -> String.valueOf(decimal.value());
+
             case StringLiteral string -> "\"" + string.value() + "\"";
 
             case BooleanLiteral bool -> String.valueOf(bool.value());
@@ -74,6 +82,9 @@ public final class AstPrinter {
                     "(%s %s %s)".formatted(symbol(comparison.operator()),
                                            expression(comparison.left()),
                                            expression(comparison.right()));
+
+            case AndExpression and ->
+                    "(and %s %s)".formatted(expression(and.left()), expression(and.right()));
         };
     }
 
@@ -82,19 +93,46 @@ public final class AstPrinter {
             case LESS_THAN -> "<";
             case GREATER_THAN -> ">";
             case NOT_EQUALS -> "<>";
+            case EQUALS -> "=";
         };
     }
 
     // ---------- bloques ----------
 
     private static String matchBlock(List<MatchStatement> matches) {
-        var patterns = matches.stream().flatMap(match -> match.patterns().stream()).toList();
+        var paths = matches.stream().flatMap(match -> match.patterns().stream()).toList();
 
         return indent(1) + "Match: {" + NL
                 + indent(2) + "Patterns: [" + NL
-                + patterns.stream().map(AstPrinter::patternNode).collect(Collectors.joining())
+                + paths.stream().map(AstPrinter::path).collect(Collectors.joining())
                 + indent(2) + "]" + NL
                 + indent(1) + "}" + NL;
+    }
+
+    // Un camino: el nodo inicial y, por cada paso, su relacion y el nodo al
+    // que llega. Un nodo suelto imprime igual que en P1: un solo PatternNode.
+    private static String path(PathPattern pattern) {
+        return patternNode(pattern.start())
+                + pattern.steps().stream()
+                        .map(step -> relationship(step.relationship()) + patternNode(step.node()))
+                        .collect(Collectors.joining());
+    }
+
+    private static String relationship(RelationshipPattern relationship) {
+        var variable = relationship.variable()
+                .map(name -> indent(4) + "var: " + name + NL)
+                .orElse("");
+
+        var type = relationship.type()
+                .map(name -> indent(4) + "type: " + name + NL)
+                .orElse("");
+
+        return indent(3) + "Relationship:{" + NL
+                + variable
+                + type
+                + indent(4) + "direction: " + relationship.direction() + NL
+                + indent(4) + "properties: " + properties(relationship.properties()) + NL
+                + indent(3) + "}" + NL;
     }
 
     private static String patternNode(NodePattern pattern) {
@@ -144,7 +182,7 @@ public final class AstPrinter {
             case CreateStatement create -> indent(2) + "Create:{" + NL
                     + indent(3) + "Patterns: [" + NL
                     + create.patterns().stream()
-                            .map(pattern -> shift(patternNode(pattern)))
+                            .map(pattern -> shift(path(pattern)))
                             .collect(Collectors.joining())
                     + indent(3) + "]" + NL
                     + indent(2) + "}" + NL;
@@ -152,6 +190,19 @@ public final class AstPrinter {
             case DeleteStatement delete -> indent(2) + "Delete:{" + NL
                     + indent(3) + "Targets: "
                     + list(delete.targets().stream().map(AstPrinter::expression).toList()) + NL
+                    + indent(2) + "}" + NL;
+
+            case SetStatement set -> indent(2) + "Set:{" + NL
+                    + indent(3) + "Items: "
+                    + list(set.items().stream()
+                            .map(item -> "{%s %s}".formatted(expression(item.target()),
+                                                             expression(item.value())))
+                            .toList()) + NL
+                    + indent(2) + "}" + NL;
+
+            case RemoveStatement remove -> indent(2) + "Remove:{" + NL
+                    + indent(3) + "Targets: "
+                    + list(remove.targets().stream().map(AstPrinter::expression).toList()) + NL
                     + indent(2) + "}" + NL;
 
             // un MATCH nunca llega aqui: se filtro antes

@@ -15,7 +15,7 @@ class AstTest{
 	@Test
 	void caso1SeRepresentaComoAst(){
 		Program program = new Program(
-        List.of(new MatchStatement(List.of(new NodePattern(Optional.of("m"), List.of("Movie"), List.of())),Optional.empty())),
+        List.of(new MatchStatement(List.of(new PathPattern(new NodePattern(Optional.of("m"), List.of("Movie"), List.of()), List.of())),Optional.empty())),
         List.of(new ReturnItem(new PropertyAccessExpression("m", "title"), Optional.empty()),
                 new ReturnItem(new PropertyAccessExpression("m", "year"), Optional.of("year"))));
 		assertEquals(1, program.clauses().size());

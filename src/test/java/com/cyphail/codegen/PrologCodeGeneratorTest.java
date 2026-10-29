@@ -9,6 +9,7 @@ package com.cyphail.codegen;
 
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
 import com.cyphail.ast.ReturnItem;
@@ -30,7 +31,7 @@ class PrologCodeGeneratorTest {
         );
 
         MatchStatement match = new MatchStatement(
-                List.of(movieNode),
+                List.of(new PathPattern(movieNode, List.of())),
                 Optional.empty()
         );
 

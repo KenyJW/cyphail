@@ -7,4 +7,5 @@ package com.cyphail.ast;
 import java.util.List;
 import java.util.Optional;
 
-public record MatchStatement(List<NodePattern> patterns, Optional<Expression> where) implements Statement {}
+// Los patrones son caminos (P2): un nodo suelto es un camino de cero pasos.
+public record MatchStatement(List<PathPattern> patterns, Optional<Expression> where) implements Statement {}

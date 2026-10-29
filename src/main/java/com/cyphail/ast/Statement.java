@@ -4,4 +4,5 @@
  */
 package com.cyphail.ast;
 
-public sealed interface Statement permits MatchStatement, CreateStatement, DeleteStatement {}
+public sealed interface Statement permits MatchStatement, CreateStatement, DeleteStatement,
+                                    SetStatement, RemoveStatement {}

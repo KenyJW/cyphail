@@ -5,4 +5,4 @@
 package com.cyphail.ast;
 
 public sealed interface LiteralExpression extends Expression
-permits NumberLiteral, StringLiteral, BooleanLiteral{}
+permits NumberLiteral, StringLiteral, BooleanLiteral, DecimalLiteral {}

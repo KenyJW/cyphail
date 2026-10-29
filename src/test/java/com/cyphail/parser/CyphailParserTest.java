@@ -6,6 +6,7 @@ package com.cyphail.parser;
 
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
 import com.cyphail.ast.ReturnItem;
@@ -28,7 +29,7 @@ class CyphailParserTest {
 
         assertEquals(new Program(
                         List.of(new MatchStatement(
-                                List.of(new NodePattern(Optional.of("p"), List.of("Person"), List.of())),
+                                List.of(new PathPattern(new NodePattern(Optional.of("p"), List.of("Person"), List.of()), List.of())),
                                 Optional.empty())),
                         List.of(new ReturnItem(new PropertyAccessExpression("p", "name"),
                                 Optional.empty()))),

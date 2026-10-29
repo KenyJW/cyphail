@@ -6,4 +6,4 @@ package com.cyphail.ast;
 
 import java.util.List;
 
-public record CreateStatement(List<NodePattern> patterns) implements Statement {}
+public record CreateStatement(List<PathPattern> patterns) implements Statement {}

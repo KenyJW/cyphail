@@ -7,7 +7,11 @@ package com.cyphail.codegen;
 import com.cyphail.ast.BooleanLiteral;
 import com.cyphail.ast.ComparisonExpression;
 import com.cyphail.ast.ComparisonOperator;
+import com.cyphail.ast.AndExpression;
 import com.cyphail.ast.CreateStatement;
+import com.cyphail.ast.DecimalLiteral;
+import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.DeleteStatement;
 import com.cyphail.ast.Expression;
 import com.cyphail.ast.MatchStatement;
@@ -16,12 +20,15 @@ import com.cyphail.ast.NumberLiteral;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
 import com.cyphail.ast.PropertyEntry;
+import com.cyphail.ast.RemoveStatement;
 import com.cyphail.ast.ReturnItem;
+import com.cyphail.ast.SetStatement;
 import com.cyphail.ast.Statement;
 import com.cyphail.ast.StringLiteral;
 import com.cyphail.ast.VariableExpression;
 
 import java.util.List;
+import java.util.stream.Stream;
 import java.util.stream.Collectors;
 
 public final class PrologCodeGenerator {
@@ -50,12 +57,28 @@ public final class PrologCodeGenerator {
             case MatchStatement match -> matchStatement(match);
             case CreateStatement create -> createStatement(create);
             case DeleteStatement delete -> deleteStatement(delete);
+
+            // PENDIENTE (Moya): que termino Prolog generan SET y REMOVE es
+            // decision del codegen. El AST ya esta listo.
+            case SetStatement set -> throw new UnsupportedOperationException(
+                    "SET: pendiente de definir el termino Prolog");
+            case RemoveStatement remove -> throw new UnsupportedOperationException(
+                    "REMOVE: pendiente de definir el termino Prolog");
         };
+    }
+
+    // PENDIENTE (Moya): por ahora un camino se aplana a sus nodos, asi los
+    // queries sin relaciones generan el mismo termino que antes. Las
+    // relaciones del camino todavia no se traducen a Prolog.
+    private static Stream<NodePattern> nodesOf(PathPattern path) {
+        return Stream.concat(Stream.of(path.start()),
+                             path.steps().stream().map(step -> step.node()));
     }
 
     private static String matchStatement(MatchStatement match) {
         String patterns = join(
                 match.patterns().stream()
+                        .flatMap(PrologCodeGenerator::nodesOf)
                         .map(PrologCodeGenerator::nodePattern)
                         .toList()
         );
@@ -70,6 +93,7 @@ public final class PrologCodeGenerator {
     private static String createStatement(CreateStatement create) {
         String patterns = join(
                 create.patterns().stream()
+                        .flatMap(PrologCodeGenerator::nodesOf)
                         .map(PrologCodeGenerator::nodePattern)
                         .toList()
         );
@@ -135,6 +159,14 @@ public final class PrologCodeGenerator {
 
     private static String expression(Expression expression) {
         return switch (expression) {
+            // PENDIENTE (Moya): revisar el formato del decimal en Prolog
+            case DecimalLiteral decimal ->
+                    Double.toString(decimal.value());
+
+            // PENDIENTE (Moya): nombre del termino para la conjuncion
+            case AndExpression and -> throw new UnsupportedOperationException(
+                    "AND: pendiente de definir el termino Prolog");
+
             case NumberLiteral number ->
                     Long.toString(number.value());
 
@@ -172,6 +204,7 @@ public final class PrologCodeGenerator {
             case LESS_THAN -> "'<'";
             case GREATER_THAN -> "'>'";
             case NOT_EQUALS -> "'<>'";
+            case EQUALS -> "'='";
         };
     }
 

@@ -4,6 +4,7 @@
  */
 package com.cyphail.analyzer;
 
+import com.cyphail.ast.AndExpression;
 import com.cyphail.ast.ComparisonExpression;
 import com.cyphail.ast.CreateStatement;
 import com.cyphail.ast.DeleteStatement;
@@ -11,9 +12,12 @@ import com.cyphail.ast.Expression;
 import com.cyphail.ast.LiteralExpression;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
+import com.cyphail.ast.RemoveStatement;
 import com.cyphail.ast.ReturnItem;
+import com.cyphail.ast.SetStatement;
 import com.cyphail.ast.Statement;
 import com.cyphail.ast.VariableExpression;
 
@@ -78,21 +82,44 @@ public final class Analyzer {
 
             // primero los patrones (que definen variables), despues el WHERE
             case MatchStatement match -> {
-                var afterPatterns = patterns(match.patterns(), scope);
+                var afterPatterns = patterns(nodesOf(match.patterns()), scope);
                 yield match.where()
                         .map(where -> check(where, afterPatterns))
                         .orElse(afterPatterns);
             }
 
             // CREATE tambien define su variable
-            case CreateStatement create -> patterns(create.patterns(), scope);
+            case CreateStatement create -> patterns(nodesOf(create.patterns()), scope);
 
             // DELETE solo usa: todo objetivo debe estar definido
             case DeleteStatement delete -> scope.error()
                     .or(() -> firstError(delete.targets(), scope.defined()))
                     .map(scope::fail)
                     .orElse(scope);
+
+            // SET usa la variable del objetivo y las del valor; no define ninguna
+            case SetStatement set -> scope.error()
+                    .or(() -> firstError(set.items().stream()
+                            .flatMap(item -> Stream.of(item.target(), item.value()))
+                            .toList(), scope.defined()))
+                    .map(scope::fail)
+                    .orElse(scope);
+
+            // REMOVE solo usa, como DELETE
+            case RemoveStatement remove -> scope.error()
+                    .or(() -> firstError(remove.targets(), scope.defined()))
+                    .map(scope::fail)
+                    .orElse(scope);
         };
+    }
+
+    // Los nodos de una lista de caminos, en el orden en que se escribieron:
+    // el inicial de cada uno y despues el de cada paso.
+    private static List<NodePattern> nodesOf(List<PathPattern> paths) {
+        return paths.stream()
+                .flatMap(path -> Stream.concat(Stream.of(path.start()),
+                                               path.steps().stream().map(step -> step.node())))
+                .toList();
     }
 
     // El orden importa: las propiedades del patron se revisan ANTES de definir
@@ -121,7 +148,7 @@ public final class Analyzer {
         return usage(expression, scope.defined()).map(scope::fail).orElse(scope);
     }
 
-    private static Optional<String> firstError(List<Expression> expressions, Set<String> defined) {
+    private static Optional<String> firstError(List<? extends Expression> expressions, Set<String> defined) {
         return expressions.stream()
                 .map(expression -> usage(expression, defined))
                 .flatMap(Optional::stream)
@@ -141,6 +168,11 @@ public final class Analyzer {
             case ComparisonExpression comparison ->
                     usage(comparison.left(), defined)
                             .or(() -> usage(comparison.right(), defined));
+
+            // AND revisa los dos lados, igual que una comparacion
+            case AndExpression and ->
+                    usage(and.left(), defined)
+                            .or(() -> usage(and.right(), defined));
         };
     }
 

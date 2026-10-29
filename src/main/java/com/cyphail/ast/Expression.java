@@ -7,4 +7,5 @@ package com.cyphail.ast;
 
 
 public sealed interface Expression permits 
-LiteralExpression, VariableExpression, PropertyAccessExpression, ComparisonExpression{}
+LiteralExpression, VariableExpression, PropertyAccessExpression, ComparisonExpression,
+AndExpression {}

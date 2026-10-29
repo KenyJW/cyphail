@@ -6,9 +6,11 @@ package com.cyphail.parser;
 
 import com.cyphail.ast.ComparisonExpression;
 import com.cyphail.ast.ComparisonOperator;
+import com.cyphail.ast.Direction;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
 import com.cyphail.ast.NumberLiteral;
+import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
 import com.cyphail.ast.ReturnItem;
@@ -67,7 +69,7 @@ class StatementParsersTest {
                 StatementParsers.matchStatement().parse(tokens("MATCH (p:Person)")));
 
         assertEquals(new MatchStatement(
-                        List.of(new NodePattern(Optional.of("p"), List.of("Person"), List.of())),
+                        List.of(new PathPattern(new NodePattern(Optional.of("p"), List.of("Person"), List.of()), List.of())),
                         Optional.empty()),
                 ok.token());
     }
@@ -102,7 +104,7 @@ class StatementParsersTest {
 
         assertEquals(new Program(
                         List.of(new MatchStatement(
-                                List.of(new NodePattern(Optional.of("p"), List.of("Person"), List.of())),
+                                List.of(new PathPattern(new NodePattern(Optional.of("p"), List.of("Person"), List.of()), List.of())),
                                 Optional.empty())),
                         List.of(new ReturnItem(new PropertyAccessExpression("p", "name"),
                                 Optional.empty()))),
@@ -150,11 +152,20 @@ class StatementParsersTest {
     }
 
     @Test
-    void caso2NoSoportadoTodavia() {
-        // MATCH (p:Person)-[:FOLLOWS]->(q:Person) necesita un patron de relacion.
-        // El AST no tiene una clase para eso: MatchStatement solo guarda NodePattern.
-        assertInstanceOf(Fail.class, StatementParsers.program().parse(
+    void caso2ConPatronDeRelacion() {
+        // En P1 esto fallaba: el AST no sabia de relaciones. Desde P2 el
+        // patron es un camino de un paso, con su relacion en el medio.
+        var ok = assertInstanceOf(Ok.class, StatementParsers.program().parse(
                 tokens("MATCH (p:Person)-[:FOLLOWS]->(q:Person) RETURN p.name, q.name")));
+
+        var match = (MatchStatement) ((Program) ok.token()).clauses().get(0);
+        var camino = match.patterns().get(0);
+
+        assertEquals(Optional.of("p"), camino.start().variable());
+        assertEquals(1, camino.steps().size());
+        assertEquals(Optional.of("FOLLOWS"), camino.steps().get(0).relationship().type());
+        assertEquals(Direction.OUT, camino.steps().get(0).relationship().direction());
+        assertEquals(Optional.of("q"), camino.steps().get(0).node().variable());
     }
 
     // ---------- el ; final (P2) ----------

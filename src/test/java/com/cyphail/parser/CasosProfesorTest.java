@@ -10,6 +10,7 @@ import com.cyphail.ast.DeleteStatement;
 import com.cyphail.ast.ComparisonOperator;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.NumberLiteral;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
@@ -41,6 +42,11 @@ class CasosProfesorTest {
         return (MatchStatement) p.clauses().get(0);
     }
 
+    // Un nodo suelto es un camino de cero pasos: asi lo guarda el AST desde P2.
+    private static PathPattern lone(NodePattern node) {
+        return new PathPattern(node, List.of());
+    }
+
     // CASO 1 Un patron y proyeccion con un alias.
     @Test
     void profesorCaso1() {
@@ -49,7 +55,7 @@ class CasosProfesorTest {
                 RETURN m.title,
                        m.year AS year""");
 
-        assertEquals(List.of(new NodePattern(Optional.of("m"), List.of("Movie"), List.of())),
+        assertEquals(List.of(lone(new NodePattern(Optional.of("m"), List.of("Movie"), List.of()))),
                 matchOf(p).patterns());
         assertEquals(Optional.empty(), matchOf(p).where());
         assertEquals(List.of(
@@ -84,9 +90,9 @@ class CasosProfesorTest {
                 RETURN a.name AS name,
                        a.age AS age""");
 
-        assertEquals(List.of(new NodePattern(Optional.of("a"),
+        assertEquals(List.of(lone(new NodePattern(Optional.of("a"),
                         List.of("Person", "Employee"),
-                        List.of(new PropertyEntry("id", new NumberLiteral(1))))),
+                        List.of(new PropertyEntry("id", new NumberLiteral(1)))))),
                 matchOf(p).patterns());
         assertEquals(2, p.returnItems().size());
     }
@@ -137,10 +143,10 @@ class CasosProfesorTest {
                        p.name AS name""");
 
         assertEquals(List.of(
-                        new NodePattern(Optional.of("m"), List.of("Movie"),
-                                List.of(new PropertyEntry("year", new NumberLiteral(1999)))),
-                        new NodePattern(Optional.of("p"), List.of("Person"),
-                                List.of(new PropertyEntry("age", new NumberLiteral(40))))),
+                        lone(new NodePattern(Optional.of("m"), List.of("Movie"),
+                                List.of(new PropertyEntry("year", new NumberLiteral(1999))))),
+                        lone(new NodePattern(Optional.of("p"), List.of("Person"),
+                                List.of(new PropertyEntry("age", new NumberLiteral(40)))))),
                 matchOf(p).patterns());
     }
 
@@ -155,7 +161,7 @@ class CasosProfesorTest {
         // el valor de la propiedad es un acceso a propiedad, no un literal
         assertEquals(List.of(new PropertyEntry("personId",
                         new PropertyAccessExpression("p", "id"))),
-                matchOf(p).patterns().get(1).properties());
+                matchOf(p).patterns().get(1).start().properties());
     }
 
     // CASO 10 Deteccion de variables no definidas.
@@ -183,9 +189,9 @@ class CasosProfesorTest {
 
         assertEquals(2, p.clauses().size());
         var create = assertInstanceOf(CreateStatement.class, p.clauses().get(1));
-        assertEquals(List.of(new NodePattern(Optional.of("c"), List.of("Certificate"),
+        assertEquals(List.of(lone(new NodePattern(Optional.of("c"), List.of("Certificate"),
                         List.of(new PropertyEntry("issuedTo", new StringLiteral("adult")),
-                                new PropertyEntry("year", new NumberLiteral(2026))))),
+                                new PropertyEntry("year", new NumberLiteral(2026)))))),
                 create.patterns());
     }
 

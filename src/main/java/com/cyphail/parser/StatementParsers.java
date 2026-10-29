@@ -36,7 +36,7 @@ public final class StatementParsers {
     // Retorna MatchStatement desde MATCH, patrones separados por coma y WHERE opcional.
     // El tipo se declara como Statement para que Program pueda guardarlo en su lista.
     public static Parser<InputTokens, Statement, String> matchStatement() {
-        var patterns = Parsers.SepBy(PatternParsers.nodePattern(),
+        var patterns = Parsers.SepBy(PatternParsers.pathPattern(),
                                      TokenParsers.Token(TToken.COMMA));
 
         var where = Parsers.Opt(
@@ -55,7 +55,7 @@ public final class StatementParsers {
 
     // Retorna CreateStatement desde CREATE y los patrones separados por coma.
     public static Parser<InputTokens, Statement, String> createStatement() {
-        var patterns = Parsers.SepBy(PatternParsers.nodePattern(),
+        var patterns = Parsers.SepBy(PatternParsers.pathPattern(),
                                      TokenParsers.Token(TToken.COMMA));
 
         var full = Parsers.And(TokenParsers.Token(TToken.CREATE), patterns);
