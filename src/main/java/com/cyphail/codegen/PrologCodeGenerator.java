@@ -24,6 +24,7 @@ import com.cyphail.ast.PropertyEntry;
 import com.cyphail.ast.RelationshipPattern;
 import com.cyphail.ast.RemoveStatement;
 import com.cyphail.ast.ReturnItem;
+import com.cyphail.ast.SetItem;
 import com.cyphail.ast.SetStatement;
 import com.cyphail.ast.Statement;
 import com.cyphail.ast.StringLiteral;
@@ -68,19 +69,11 @@ public final class PrologCodeGenerator {
             case DeleteStatement delete ->
                     deleteStatement(delete);
 
-            // PENDIENTE (Moya): definir el término Prolog
-            // utilizado para modificar propiedades.
             case SetStatement set ->
-                    throw new UnsupportedOperationException(
-                            "SET: pendiente de definir el termino Prolog"
-                    );
+                    setStatement(set);
 
-            // PENDIENTE (Moya): definir el término Prolog
-            // utilizado para eliminar propiedades.
             case RemoveStatement remove ->
-                    throw new UnsupportedOperationException(
-                            "REMOVE: pendiente de definir el termino Prolog"
-                    );
+                    removeStatement(remove);
         };
     }
 
@@ -128,6 +121,44 @@ public final class PrologCodeGenerator {
         );
 
         return "delete(["
+                + targets
+                + "])";
+    }
+
+    private static String setStatement(
+            SetStatement set
+    ) {
+        String items = join(
+                set.items().stream()
+                        .map(PrologCodeGenerator::setItem)
+                        .toList()
+        );
+
+        return "set(["
+                + items
+                + "])";
+    }
+
+    private static String setItem(
+            SetItem item
+    ) {
+        return "set_item("
+                + expression(item.target())
+                + ", "
+                + expression(item.value())
+                + ")";
+    }
+
+    private static String removeStatement(
+            RemoveStatement remove
+    ) {
+        String targets = join(
+                remove.targets().stream()
+                        .map(PrologCodeGenerator::expression)
+                        .toList()
+        );
+
+        return "remove(["
                 + targets
                 + "])";
     }
@@ -263,12 +294,12 @@ public final class PrologCodeGenerator {
             case DecimalLiteral decimal ->
                     Double.toString(decimal.value());
 
-            // PENDIENTE (Moya): definir el término Prolog
-            // utilizado para la conjunción lógica.
             case AndExpression and ->
-                    throw new UnsupportedOperationException(
-                            "AND: pendiente de definir el termino Prolog"
-                    );
+                    "and("
+                            + expression(and.left())
+                            + ", "
+                            + expression(and.right())
+                            + ")";
 
             case NumberLiteral number ->
                     Long.toString(number.value());
