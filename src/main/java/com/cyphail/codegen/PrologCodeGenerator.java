@@ -4,22 +4,24 @@
  */
 package com.cyphail.codegen;
 
+import com.cyphail.ast.AndExpression;
 import com.cyphail.ast.BooleanLiteral;
 import com.cyphail.ast.ComparisonExpression;
 import com.cyphail.ast.ComparisonOperator;
-import com.cyphail.ast.AndExpression;
 import com.cyphail.ast.CreateStatement;
 import com.cyphail.ast.DecimalLiteral;
-import com.cyphail.ast.NodePattern;
-import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.DeleteStatement;
+import com.cyphail.ast.Direction;
 import com.cyphail.ast.Expression;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
 import com.cyphail.ast.NumberLiteral;
+import com.cyphail.ast.PathPattern;
+import com.cyphail.ast.PatternStep;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
 import com.cyphail.ast.PropertyEntry;
+import com.cyphail.ast.RelationshipPattern;
 import com.cyphail.ast.RemoveStatement;
 import com.cyphail.ast.ReturnItem;
 import com.cyphail.ast.SetStatement;
@@ -28,7 +30,6 @@ import com.cyphail.ast.StringLiteral;
 import com.cyphail.ast.VariableExpression;
 
 import java.util.List;
-import java.util.stream.Stream;
 import java.util.stream.Collectors;
 
 public final class PrologCodeGenerator {
@@ -49,40 +50,46 @@ public final class PrologCodeGenerator {
                         .toList()
         );
 
-        return "query([" + clauses + "], [" + returnItems + "]).";
+        return "query(["
+                + clauses
+                + "], ["
+                + returnItems
+                + "]).";
     }
 
     private static String statement(Statement statement) {
         return switch (statement) {
-            case MatchStatement match -> matchStatement(match);
-            case CreateStatement create -> createStatement(create);
-            case DeleteStatement delete -> deleteStatement(delete);
+            case MatchStatement match ->
+                    matchStatement(match);
 
-            // PENDIENTE (Moya): que termino Prolog generan SET y REMOVE es
-            // decision del codegen. El AST ya esta listo.
-            case SetStatement set -> throw new UnsupportedOperationException(
-                    "SET: pendiente de definir el termino Prolog");
-            case RemoveStatement remove -> throw new UnsupportedOperationException(
-                    "REMOVE: pendiente de definir el termino Prolog");
+            case CreateStatement create ->
+                    createStatement(create);
+
+            case DeleteStatement delete ->
+                    deleteStatement(delete);
+
+            // PENDIENTE (Moya): definir el término Prolog
+            // utilizado para modificar propiedades.
+            case SetStatement set ->
+                    throw new UnsupportedOperationException(
+                            "SET: pendiente de definir el termino Prolog"
+                    );
+
+            // PENDIENTE (Moya): definir el término Prolog
+            // utilizado para eliminar propiedades.
+            case RemoveStatement remove ->
+                    throw new UnsupportedOperationException(
+                            "REMOVE: pendiente de definir el termino Prolog"
+                    );
         };
     }
 
-    // PENDIENTE (Moya): un camino sin pasos genera el mismo termino que
-    // antes. Uno con relaciones falla a proposito: aplanarlo en silencio
-    // produciria Prolog que dice otra cosa, y encima diria OK.
-    private static Stream<NodePattern> nodesOf(PathPattern path) {
-        if (!path.steps().isEmpty()) {
-            throw new UnsupportedOperationException(
-                    "relationships: pendiente de definir el termino Prolog");
-        }
-        return Stream.of(path.start());
-    }
-
-    private static String matchStatement(MatchStatement match) {
+    private static String matchStatement(
+            MatchStatement match
+    ) {
         String patterns = join(
                 match.patterns().stream()
-                        .flatMap(PrologCodeGenerator::nodesOf)
-                        .map(PrologCodeGenerator::nodePattern)
+                        .map(PrologCodeGenerator::pathPattern)
                         .toList()
         );
 
@@ -90,33 +97,118 @@ public final class PrologCodeGenerator {
                 .map(PrologCodeGenerator::expression)
                 .orElse("none");
 
-        return "match([" + patterns + "], " + where + ")";
+        return "match(["
+                + patterns
+                + "], "
+                + where
+                + ")";
     }
 
-    private static String createStatement(CreateStatement create) {
+    private static String createStatement(
+            CreateStatement create
+    ) {
         String patterns = join(
                 create.patterns().stream()
-                        .flatMap(PrologCodeGenerator::nodesOf)
-                        .map(PrologCodeGenerator::nodePattern)
+                        .map(PrologCodeGenerator::pathPattern)
                         .toList()
         );
 
-        return "create([" + patterns + "])";
+        return "create(["
+                + patterns
+                + "])";
     }
 
-    private static String deleteStatement(DeleteStatement delete) {
+    private static String deleteStatement(
+            DeleteStatement delete
+    ) {
         String targets = join(
                 delete.targets().stream()
                         .map(PrologCodeGenerator::expression)
                         .toList()
         );
 
-        return "delete([" + targets + "])";
+        return "delete(["
+                + targets
+                + "])";
     }
 
-    private static String nodePattern(NodePattern node) {
+    private static String pathPattern(
+            PathPattern path
+    ) {
+        if (path.steps().isEmpty()) {
+            return nodePattern(path.start());
+        }
+
+        String steps = join(
+                path.steps().stream()
+                        .map(PrologCodeGenerator::patternStep)
+                        .toList()
+        );
+
+        return "path("
+                + nodePattern(path.start())
+                + ", ["
+                + steps
+                + "])";
+    }
+
+    private static String patternStep(
+            PatternStep step
+    ) {
+        return "step("
+                + relationshipPattern(step.relationship())
+                + ", "
+                + nodePattern(step.node())
+                + ")";
+    }
+
+    private static String relationshipPattern(
+            RelationshipPattern relationship
+    ) {
+        String variable = relationship.variable()
+                .map(name ->
+                        "var(" + atom(name) + ")"
+                )
+                .orElse("anonymous");
+
+        String type = relationship.type()
+                .map(PrologCodeGenerator::atom)
+                .orElse("none");
+
+        String properties = join(
+                relationship.properties().stream()
+                        .map(PrologCodeGenerator::property)
+                        .toList()
+        );
+
+        return "relationship("
+                + variable
+                + ", "
+                + type
+                + ", ["
+                + properties
+                + "], "
+                + direction(relationship.direction())
+                + ")";
+    }
+
+    private static String direction(
+            Direction direction
+    ) {
+        return switch (direction) {
+            case OUT -> "out";
+            case IN -> "in";
+            case NONE -> "none";
+        };
+    }
+
+    private static String nodePattern(
+            NodePattern node
+    ) {
         String variable = node.variable()
-                .map(name -> "var(" + atom(name) + ")")
+                .map(name ->
+                        "var(" + atom(name) + ")"
+                )
                 .orElse("anonymous");
 
         String labels = join(
@@ -140,7 +232,9 @@ public final class PrologCodeGenerator {
                 + "])";
     }
 
-    private static String property(PropertyEntry property) {
+    private static String property(
+            PropertyEntry property
+    ) {
         return "property("
                 + atom(property.name())
                 + ", "
@@ -148,7 +242,9 @@ public final class PrologCodeGenerator {
                 + ")";
     }
 
-    private static String returnItem(ReturnItem item) {
+    private static String returnItem(
+            ReturnItem item
+    ) {
         String alias = item.alias()
                 .map(PrologCodeGenerator::atom)
                 .orElse("none");
@@ -160,15 +256,19 @@ public final class PrologCodeGenerator {
                 + ")";
     }
 
-    private static String expression(Expression expression) {
+    private static String expression(
+            Expression expression
+    ) {
         return switch (expression) {
-            // PENDIENTE (Moya): revisar el formato del decimal en Prolog
             case DecimalLiteral decimal ->
                     Double.toString(decimal.value());
 
-            // PENDIENTE (Moya): nombre del termino para la conjuncion
-            case AndExpression and -> throw new UnsupportedOperationException(
-                    "AND: pendiente de definir el termino Prolog");
+            // PENDIENTE (Moya): definir el término Prolog
+            // utilizado para la conjunción lógica.
+            case AndExpression and ->
+                    throw new UnsupportedOperationException(
+                            "AND: pendiente de definir el termino Prolog"
+                    );
 
             case NumberLiteral number ->
                     Long.toString(number.value());
@@ -180,7 +280,9 @@ public final class PrologCodeGenerator {
                     Boolean.toString(bool.value());
 
             case VariableExpression variable ->
-                    "var(" + atom(variable.name()) + ")";
+                    "var("
+                            + atom(variable.name())
+                            + ")";
 
             case PropertyAccessExpression property ->
                     "property_access("
@@ -193,7 +295,9 @@ public final class PrologCodeGenerator {
                     "compare("
                             + expression(comparison.left())
                             + ", "
-                            + comparisonOperator(comparison.operator())
+                            + comparisonOperator(
+                            comparison.operator()
+                    )
                             + ", "
                             + expression(comparison.right())
                             + ")";
@@ -211,15 +315,21 @@ public final class PrologCodeGenerator {
         };
     }
 
-    private static String atom(String value) {
+    private static String atom(
+            String value
+    ) {
         String escaped = value
                 .replace("\\", "\\\\")
                 .replace("'", "\\'");
 
-        return "'" + escaped + "'";
+        return "'"
+                + escaped
+                + "'";
     }
 
-    private static String join(List<String> values) {
+    private static String join(
+            List<String> values
+    ) {
         return values.stream()
                 .collect(Collectors.joining(", "));
     }
