@@ -75,29 +75,23 @@ public final class ReplCommand implements Callable<Integer> {
         }
     }
 
+    // Parte la linea en comando y argumento, sin variables que se reasignen:
+    // split con limite 2 da siempre uno o dos pedazos, y el segundo puede faltar.
     private String dispatchReplCommand(String input) {
-    String entrada = input.strip();
-    String command;
-    String argument;
+        var partes = input.strip().split(" ", 2);
+        var command = partes[0].toLowerCase();
+        var argument = partes.length > 1 ? partes[1].strip() : "";
 
-
-    if (entrada.contains(" ")) {
-        String[] partes = entrada.split(" ", 2);
-        command = partes[0].toLowerCase(); 
-        argument = partes[1].strip();     
-    } else {
-        command = entrada.toLowerCase();
-        argument = ""; 
-    }
-    return switch (command) {
+        return switch (command) {
             case ".help" -> ReplHelp.text();
             case ".about" -> AboutInfo.text();
             case ".use" -> GraphCatalog.use(argument);
             case ".tree" -> com.cyphail.tree.TreeCommand.run(argument);
             case ".load" -> LoadCommand.run(argument, handler);
-            default -> "ERROR: unknown REPL command \"" + command + "\". Type \".help\" for a list of commands.";
+            default -> "ERROR: unknown REPL command \"" + command
+                    + "\". Type \".help\" for a list of commands.";
         };
-}
+    }
 
 
     private void prompt(String pending) {
