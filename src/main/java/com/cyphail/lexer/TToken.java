@@ -8,7 +8,7 @@ package com.cyphail.lexer;
 // Tipos de token del dialecto Cyphail (casos de uso 1-15 del SPEC).
 public enum TToken {
     // literales e identificadores
-    NUM, ID, STRING,
+    NUM, DECIMAL, ID, STRING,
 	
 	//end of file
 	EOF,

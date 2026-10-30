@@ -14,7 +14,9 @@ public final class Lexers {
     }
 
     public static Lexer Number() {
-        var re_num = Pattern.compile("\\s*(?<token>\\d+)");
+        // La parte decimal es opcional. En "1..5" el grupo no engancha,
+        // porque tras el primer punto no hay digito: el ".." queda intacto.
+        var re_num = Pattern.compile("\\s*(?<token>\\d+(\\.\\d+)?)");
 
         Lexer lexer = (InputString source) -> {
             var matcher = re_num.matcher(source.input());
@@ -25,7 +27,9 @@ public final class Lexers {
             }
 
             var token = matcher.group("token");
-            return new Ok<>(new TokenString(TToken.NUM, token),
+            var type = token.contains(".") ? TToken.DECIMAL : TToken.NUM;
+
+            return new Ok<>(new TokenString(type, token),
                             new InputString(source.input(), matcher.end()));
         };
 

@@ -149,4 +149,29 @@ class ExpressionParsersTest {
         assertEquals(ComparisonOperator.GREATER_THAN, gt.token());
         assertEquals(ComparisonOperator.NOT_EQUALS, neq.token());
     }
+
+    // ---------- el operador = (P2) ----------
+
+    @Test
+    void equalsIsAComparisonOperator() {
+        var ok = assertInstanceOf(Ok.class,
+                ExpressionParsers.comparison().parse(tokens("a.age = b.age")));
+
+        assertEquals(new ComparisonExpression(
+                        new PropertyAccessExpression("a", "age"),
+                        ComparisonOperator.EQUALS,
+                        new PropertyAccessExpression("b", "age")),
+                ok.token());
+    }
+
+    @Test
+    void equalsDoesNotStealTheOtherOperators() {
+        var menor = assertInstanceOf(Ok.class, ExpressionParsers.comparison().parse(tokens("a.x < 1")));
+        var distinto = assertInstanceOf(Ok.class, ExpressionParsers.comparison().parse(tokens("a.x <> 1")));
+
+        assertEquals(ComparisonOperator.LESS_THAN,
+                ((ComparisonExpression) menor.token()).operator());
+        assertEquals(ComparisonOperator.NOT_EQUALS,
+                ((ComparisonExpression) distinto.token()).operator());
+    }
 }

@@ -7,6 +7,7 @@ package com.cyphail.parser;
 import com.cyphail.ast.BooleanLiteral;
 import com.cyphail.ast.ComparisonExpression;
 import com.cyphail.ast.ComparisonOperator;
+import com.cyphail.ast.DecimalLiteral;
 import com.cyphail.ast.Expression;
 import com.cyphail.ast.NumberLiteral;
 import com.cyphail.ast.PropertyAccessExpression;
@@ -52,9 +53,18 @@ public final class ExpressionParsers {
         return Parsers.Or(yes, no);
     }
 
-    // Prueba los tres literales.
+    // Retorna DecimalLiteral desde un token DECIMAL: 19.99
+    // Va aparte de number() porque NumberLiteral guarda un long.
+    public static Parser<InputTokens, Expression, String> decimal() {
+        Parser<InputTokens, Expression, String> p =
+                Parsers.Map(TokenParsers.Token(TToken.DECIMAL),
+                        t -> new DecimalLiteral(Double.parseDouble(t.value())));
+        return p;
+    }
+
+    // Prueba los cuatro literales.
     public static Parser<InputTokens, Expression, String> literal() {
-        return Parsers.Or(number(), Parsers.Or(string(), bool()));
+        return Parsers.Or(number(), Parsers.Or(decimal(), Parsers.Or(string(), bool())));
     }
 
     // ---------- 3b. Variable y acceso a propiedad ----------
@@ -92,7 +102,7 @@ public final class ExpressionParsers {
 
     // ---------- 3c. Comparacion ----------
 
-    // Retorna ComparisonOperator desde LT, GT o NEQ.
+    // Retorna ComparisonOperator desde LT, GT, NEQ o EQ.
     // No produce Expression: el operador no es un nodo del AST, es parte de uno.
     public static Parser<InputTokens, ComparisonOperator, String> operator() {
         Parser<InputTokens, ComparisonOperator, String> lt =
@@ -104,7 +114,10 @@ public final class ExpressionParsers {
         Parser<InputTokens, ComparisonOperator, String> neq =
                 Parsers.Map(TokenParsers.Token(TToken.NEQ), t -> ComparisonOperator.NOT_EQUALS);
 
-        return Parsers.Or(lt, Parsers.Or(gt, neq));
+        Parser<InputTokens, ComparisonOperator, String> eq =
+                Parsers.Map(TokenParsers.Token(TToken.EQ), t -> ComparisonOperator.EQUALS);
+
+        return Parsers.Or(lt, Parsers.Or(gt, Parsers.Or(neq, eq)));
     }
 
     // Retorna ComparisonExpression desde operand operator operand.

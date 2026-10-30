@@ -183,4 +183,27 @@ class LexersTest {
         assertInstanceOf(Ok.class, Lexers.StringLiteral().parse(in("\t\"Ana\"")));
         assertInstanceOf(Ok.class, Lexers.StringLiteral().parse(in("\n\"Ana\"")));
     }
+
+    // ---------- decimales (P2) ----------
+
+    @Test
+    void aNumberWithADotIsADecimal() {
+        var ok = assertInstanceOf(Ok.class, Lexers.Number().parse(in("19.99")));
+        assertEquals(new TokenString(TToken.DECIMAL, "19.99"), ok.token());
+    }
+
+    @Test
+    void aWholeNumberIsStillNum() {
+        var ok = assertInstanceOf(Ok.class, Lexers.Number().parse(in("42")));
+        assertEquals(new TokenString(TToken.NUM, "42"), ok.token());
+    }
+
+    @Test
+    void theRangeDotsAreNotEatenByTheNumber() {
+        // en "1..5" el decimal no engancha: tras el primer punto no hay digito
+        var ok = assertInstanceOf(Ok.class, Lexers.Number().parse(in("1..5")));
+
+        assertEquals(new TokenString(TToken.NUM, "1"), ok.token());
+        assertEquals(1, ((InputString) ok.rest()).index());
+    }
 }
