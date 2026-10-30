@@ -206,4 +206,25 @@ class LexersTest {
         assertEquals(new TokenString(TToken.NUM, "1"), ok.token());
         assertEquals(1, ((InputString) ok.rest()).index());
     }
+
+    // ---------- REMOVE (P2) ----------
+
+    @Test
+    void removeIsAKeywordNotAnIdentifier() {
+        var ok = assertInstanceOf(Ok.class, Lexers.anyToken().parse(in("REMOVE p.discount")));
+        assertEquals(new TokenString(TToken.REMOVE, "REMOVE"), ok.token());
+    }
+
+    @Test
+    void removeIsCaseInsensitiveLikeTheOtherKeywords() {
+        var ok = assertInstanceOf(Ok.class, Lexers.anyToken().parse(in("remove")));
+        assertEquals(TToken.REMOVE, ((TokenString) ok.token()).type());
+    }
+
+    @Test
+    void aWordStartingWithRemoveIsStillAnIdentifier() {
+        // el \b de la regex lo garantiza: "removed" no es la palabra clave
+        var ok = assertInstanceOf(Ok.class, Lexers.anyToken().parse(in("removed")));
+        assertEquals(new TokenString(TToken.ID, "removed"), ok.token());
+    }
 }

@@ -14,7 +14,7 @@ public enum TToken {
 	EOF,
 
     // palabras clave
-    MATCH, WHERE, RETURN, AS, CREATE, SET, DELETE, DETACH,
+    MATCH, WHERE, RETURN, AS, CREATE, SET, REMOVE, DELETE, DETACH,
     NOT, AND, OR, COUNT, SAVE, LOAD, TRUE, FALSE,
 
     // delimitadores

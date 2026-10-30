@@ -57,7 +57,7 @@ public final class Lexers {
 
     public static Lexer Keyword() {
         var re_kw = Pattern.compile(
-            "\\s*(?<token>MATCH|WHERE|RETURN|AS|CREATE|SET|DELETE|DETACH"
+            "\\s*(?<token>MATCH|WHERE|RETURN|AS|CREATE|SET|REMOVE|DELETE|DETACH"
                 + "|NOT|AND|OR|COUNT|SAVE|LOAD|TRUE|FALSE)\\b",
             Pattern.CASE_INSENSITIVE);
 
