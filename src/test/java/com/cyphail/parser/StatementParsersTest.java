@@ -7,6 +7,7 @@ package com.cyphail.parser;
 import com.cyphail.ast.ComparisonExpression;
 import com.cyphail.ast.ComparisonOperator;
 import com.cyphail.ast.Direction;
+import com.cyphail.ast.CreateStatement;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
 import com.cyphail.ast.NumberLiteral;
@@ -140,8 +141,24 @@ class StatementParsersTest {
     // ---------- 5c. Lo que debe fallar ----------
 
     @Test
-    void matchSinReturnFalla() {
-        assertInstanceOf(Fail.class, StatementParsers.program().parse(tokens("MATCH (p:Person)")));
+    void matchSinReturnEsValido() {
+        // desde P2 el RETURN es opcional
+        var ok = assertInstanceOf(Ok.class,
+                StatementParsers.program().parse(tokens("MATCH (p:Person)")));
+
+        assertEquals(List.of(), ((Program) ok.token()).returnItems());
+    }
+
+    @Test
+    void createSinMatchPrevioEsValido() {
+        // el SPEC de P2 lo pide: CREATE (a:Persona {nombre: 'Marta'});
+        var ok = assertInstanceOf(Ok.class, StatementParsers.program().parse(
+                tokens("CREATE (a:Persona {nombre: 'Marta'})")));
+
+        var programa = (Program) ok.token();
+        assertEquals(1, programa.clauses().size());
+        assertInstanceOf(CreateStatement.class, programa.clauses().get(0));
+        assertEquals(List.of(), programa.returnItems());
     }
 
     @Test

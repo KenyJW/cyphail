@@ -28,7 +28,9 @@ class ErrorMessagesTest {
 
     @Test
     void faltaElOperandoDerechoDeLaComparacion() {
-        assertEquals("Expected RETURN but found GT at token 8",
+        // el > queda sin consumir; como el RETURN ya es opcional, el error
+        // aparece al exigir el EOF en vez de al exigir el RETURN
+        assertEquals("Expected EOF but found GT at token 8",
                 reasonOf("MATCH (p) WHERE p.age > RETURN p"));
     }
 

@@ -55,8 +55,11 @@ class CyphailParserTest {
     }
 
     @Test
-    void matchSinReturnFalla() {
-        assertInstanceOf(Fail.class, CyphailParser.parse("MATCH (p:Person)"));
+    void matchSinReturnEsValido() {
+        // desde P2 el RETURN es opcional: el programa queda sin proyecciones
+        var ok = assertInstanceOf(Ok.class, CyphailParser.parse("MATCH (p:Person)"));
+
+        assertEquals(List.of(), ((Program) ok.token()).returnItems());
     }
 
     @Test

@@ -10,10 +10,13 @@ import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.ReturnItem;
 import com.cyphail.ast.Statement;
+import com.cyphail.lexer.Ok;
 import com.cyphail.lexer.Parser;
 import com.cyphail.lexer.Parsers;
 import com.cyphail.lexer.TToken;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 // Parsers de clausulas y del programa completo.
@@ -79,23 +82,36 @@ public final class StatementParsers {
         return p;
     }
 
-    // Retorna Program desde las clausulas, el RETURN y el EOF.
+    // Retorna Program desde las clausulas, el RETURN opcional y el EOF.
     // El EOF es obligatorio: sin el, "MATCH (p) RETURN p basura" pasaria
     // dejando tokens sin leer.
-    // TODO: el caso 13 del SPEC (DELETE sin RETURN) exigira hacerlo opcional.
     public static Parser<InputTokens, Program, String> program() {
-        // El primero es un MATCH obligatorio ("todo query empieza con un match",
-        // segun los casos de prueba). Exigirlo conserva su mensaje de error.
-        var otherClauses = Parsers.Star(
-                Parsers.Or(matchStatement(),
-                        Parsers.Or(createStatement(), deleteStatement())));
+        // Cualquier clausula puede ir primero: el SPEC de P2 admite CREATE
+        // sin MATCH previo. Some y no Star: un programa vacio no es valido.
+        //
+        // Sin Label, y con matchStatement() AL FINAL a proposito: un Or que
+        // falla reporta la razon de su ULTIMA alternativa, y la del match es
+        // casi siempre la util. Las tres se distinguen por su primer token,
+        // asi que el orden no cambia que reconoce, solo que mensaje da.
+        var clause = Parsers.Or(createStatement(),
+                Parsers.Or(deleteStatement(), matchStatement()));
 
-        var clauses = Parsers.Map(Parsers.And(matchStatement(), otherClauses),
-                pair -> Stream.concat(Stream.of(pair.first()), pair.second().stream()).toList());
+        var clauses = Parsers.Some(clause);
 
         var items = Parsers.SepBy(returnItem(), TokenParsers.Token(TToken.COMMA));
 
-        var returnPart = Parsers.And(TokenParsers.Token(TToken.RETURN), items);
+        // El RETURN es opcional desde P2: "CREATE (a:Persona);" es valido.
+        // Pero si la palabra RETURN esta, las proyecciones son obligatorias:
+        // con un Opt normal, "RETURN" solo retrocederia y el error diria
+        // "Expected EOF" en vez de senalar la expresion que falta.
+        var returned = Parsers.Map(
+                Parsers.And(TokenParsers.Token(TToken.RETURN), items),
+                pair -> Optional.of(pair.second()));
+
+        Parser<InputTokens, Optional<List<ReturnItem>>, String> returnPart =
+                source -> TokenParsers.Token(TToken.RETURN).parse(source) instanceof Ok
+                        ? returned.parse(source)
+                        : new Ok<>(Optional.empty(), source);
 
         // El ';' final es opcional: en el REPL de P2 cierra el estatuto, pero
         // un archivo o un .tree pueden traerlo o no. Se descarta al construir.
@@ -104,7 +120,8 @@ public final class StatementParsers {
 
         var full = Parsers.And(clauses, Parsers.And(returnPart, end));
 
-        return Parsers.Map(full, pair -> new Program(pair.first(),
-                                                     pair.second().first().second()));
+        return Parsers.Map(full, pair -> new Program(
+                pair.first(),
+                pair.second().first().orElse(List.of())));
     }
 }
