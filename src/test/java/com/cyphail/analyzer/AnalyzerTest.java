@@ -159,4 +159,50 @@ class AnalyzerTest {
         assertEquals(Optional.of("Undefined variable 'p'"),
                 analyze("MATCH (p:Person {id: p.id}) RETURN p"));
     }
+
+    // ---------- variables de relacion (P2) ----------
+
+    @Test
+    void laVariableDeLaRelacionQuedaDefinida() {
+        esCorrecto("MATCH (a)-[r]->(b) RETURN r");
+    }
+
+    @Test
+    void tambienCuandoLaRelacionApuntaAlReves() {
+        esCorrecto("MATCH (a)<-[r:KNOWS]-(b) RETURN r");
+    }
+
+    @Test
+    void sePuedeLeerUnaPropiedadDeLaRelacion() {
+        esCorrecto("MATCH (p)-[r:TRABAJA_EN {rol: 'Dev'}]->(e) RETURN r.rol");
+    }
+
+    @Test
+    void laRelacionDeUnCreateTambienDefine() {
+        esCorrecto("CREATE (a:Persona)-[r:TRABAJA_EN]->(e:Empresa) RETURN a, r, e");
+    }
+
+    @Test
+    void sePuedeBorrarLaRelacion() {
+        esCorrecto("MATCH (a)-[r:KNOWS]->(b) WHERE a.x > 1 DELETE r");
+    }
+
+    @Test
+    void unaVariableInventadaSigueFallando() {
+        // el arreglo define la relacion, no desactiva el chequeo
+        assertEquals(Optional.of("Undefined variable 'q'"),
+                analyze("MATCH (a)-[r]->(b) RETURN q"));
+    }
+
+    @Test
+    void unaPropiedadDeLaRelacionNoPuedeUsarAlgoNoDefinido() {
+        assertEquals(Optional.of("Undefined variable 'z'"),
+                analyze("MATCH (a)-[r {rol: z.x}]->(b) RETURN r"));
+    }
+
+    @Test
+    void unaRelacionSinVariableNoDefineNada() {
+        assertEquals(Optional.of("Undefined variable 'r'"),
+                analyze("MATCH (a)-[:KNOWS]->(b) RETURN r"));
+    }
 }

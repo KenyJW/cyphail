@@ -15,6 +15,8 @@ import com.cyphail.ast.NodePattern;
 import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
+import com.cyphail.ast.PropertyEntry;
+import com.cyphail.ast.RelationshipPattern;
 import com.cyphail.ast.RemoveStatement;
 import com.cyphail.ast.ReturnItem;
 import com.cyphail.ast.SetStatement;
@@ -82,14 +84,14 @@ public final class Analyzer {
 
             // primero los patrones (que definen variables), despues el WHERE
             case MatchStatement match -> {
-                var afterPatterns = patterns(nodesOf(match.patterns()), scope);
+                var afterPatterns = patterns(elementsOf(match.patterns()), scope);
                 yield match.where()
                         .map(where -> check(where, afterPatterns))
                         .orElse(afterPatterns);
             }
 
             // CREATE tambien define su variable
-            case CreateStatement create -> patterns(nodesOf(create.patterns()), scope);
+            case CreateStatement create -> patterns(elementsOf(create.patterns()), scope);
 
             // DELETE solo usa: todo objetivo debe estar definido
             case DeleteStatement delete -> scope.error()
@@ -113,18 +115,36 @@ public final class Analyzer {
         };
     }
 
-    // Los nodos de una lista de caminos, en el orden en que se escribieron:
-    // el inicial de cada uno y despues el de cada paso.
-    private static List<NodePattern> nodesOf(List<PathPattern> paths) {
+    // Un elemento del patron: nodo o relacion. Los dos aportan lo mismo al
+    // analisis -- una variable opcional y unas propiedades -- asi que el
+    // recorrido no tiene que distinguirlos.
+    private record Element(Optional<String> variable, List<PropertyEntry> properties) {
+    }
+
+    private static Element elementOf(NodePattern node) {
+        return new Element(node.variable(), node.properties());
+    }
+
+    private static Element elementOf(RelationshipPattern relationship) {
+        return new Element(relationship.variable(), relationship.properties());
+    }
+
+    // Los elementos de una lista de caminos, en el orden en que se escribieron:
+    // el nodo inicial y, por cada paso, su relacion y despues su nodo.
+    // La relacion va en el medio para que "(a)-[r]->(b) RETURN r" defina r.
+    private static List<Element> elementsOf(List<PathPattern> paths) {
         return paths.stream()
-                .flatMap(path -> Stream.concat(Stream.of(path.start()),
-                                               path.steps().stream().map(step -> step.node())))
+                .flatMap(path -> Stream.concat(
+                        Stream.of(elementOf(path.start())),
+                        path.steps().stream().flatMap(step -> Stream.of(
+                                elementOf(step.relationship()),
+                                elementOf(step.node())))))
                 .toList();
     }
 
     // El orden importa: las propiedades del patron se revisan ANTES de definir
     // su variable. Por eso el caso 8 es valido y el 11 no.
-    private static Scope patterns(List<NodePattern> pending, Scope scope) {
+    private static Scope patterns(List<Element> pending, Scope scope) {
         if (pending.isEmpty() || scope.failed()) {
             return scope;
         }
