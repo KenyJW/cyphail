@@ -8,6 +8,7 @@ import com.cyphail.ast.BooleanLiteral;
 import com.cyphail.ast.ComparisonExpression;
 import com.cyphail.ast.ComparisonOperator;
 import com.cyphail.ast.DecimalLiteral;
+import com.cyphail.ast.AndExpression;
 import com.cyphail.ast.Expression;
 import com.cyphail.ast.NumberLiteral;
 import com.cyphail.ast.PropertyAccessExpression;
@@ -16,6 +17,8 @@ import com.cyphail.ast.VariableExpression;
 import com.cyphail.lexer.Parser;
 import com.cyphail.lexer.Parsers;
 import com.cyphail.lexer.TToken;
+
+import java.util.List;
 
 // Convierte tokens en nodos de com.cyphail.ast.
 public final class ExpressionParsers {
@@ -92,6 +95,20 @@ public final class ExpressionParsers {
         return p;
     }
 
+    // El mismo acceso a propiedad, pero con el tipo concreto.
+    // SET y REMOVE lo necesitan asi: sus records guardan
+    // PropertyAccessExpression, no cualquier Expression.
+    public static Parser<InputTokens, PropertyAccessExpression, String> propertyTarget() {
+        var dotAndName = Parsers.And(TokenParsers.Token(TToken.DOT),
+                                     TokenParsers.Token(TToken.ID));
+
+        var full = Parsers.And(TokenParsers.Token(TToken.ID), dotAndName);
+
+        return Parsers.Map(full,
+                pair -> new PropertyAccessExpression(pair.first().value(),
+                                                     pair.second().second().value()));
+    }
+
     // Cualquier operando. propertyAccess va primero: las dos alternativas
     // empiezan con ID, y la mas larga debe intentarse antes.
     public static Parser<InputTokens, Expression, String> operand() {
@@ -138,5 +155,23 @@ public final class ExpressionParsers {
     // solo ganaria y dejaria el operador sin consumir.
     public static Parser<InputTokens, Expression, String> comparison() {
         return Parsers.Or(fullComparison(), operand());
+    }
+
+    // ---------- 3d. Conjuncion (P2) ----------
+
+    // Una o mas comparaciones unidas por AND. Con una sola, devuelve esa
+    // comparacion y no envuelve nada: "a > 1" no es un AndExpression.
+    // Asocia a la derecha: "a AND b AND c" da (and a (and b c)).
+    public static Parser<InputTokens, Expression, String> expression() {
+        var parts = Parsers.SepBy(comparison(), TokenParsers.Token(TToken.AND));
+
+        return Parsers.Map(parts, ExpressionParsers::joinWithAnd);
+    }
+
+    private static Expression joinWithAnd(List<Expression> parts) {
+        return parts.size() == 1
+                ? parts.get(0)
+                : new AndExpression(parts.get(0),
+                                    joinWithAnd(parts.subList(1, parts.size())));
     }
 }

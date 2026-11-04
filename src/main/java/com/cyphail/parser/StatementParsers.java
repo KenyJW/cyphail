@@ -8,7 +8,10 @@ import com.cyphail.ast.CreateStatement;
 import com.cyphail.ast.DeleteStatement;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.Program;
+import com.cyphail.ast.RemoveStatement;
 import com.cyphail.ast.ReturnItem;
+import com.cyphail.ast.SetItem;
+import com.cyphail.ast.SetStatement;
 import com.cyphail.ast.Statement;
 import com.cyphail.lexer.Ok;
 import com.cyphail.lexer.Parser;
@@ -44,7 +47,7 @@ public final class StatementParsers {
 
         var where = Parsers.Opt(
                 Parsers.Map(Parsers.And(TokenParsers.Token(TToken.WHERE),
-                                        ExpressionParsers.comparison()),
+                                        ExpressionParsers.expression()),
                             pair -> pair.second()));
 
         var full = Parsers.And(TokenParsers.Token(TToken.MATCH),
@@ -82,6 +85,37 @@ public final class StatementParsers {
         return p;
     }
 
+    // Retorna SetStatement desde SET y las asignaciones separadas por coma.
+    // Cada asignacion es "p.campo = valor"; el EQ se descarta.
+    public static Parser<InputTokens, Statement, String> setStatement() {
+        var assignment = Parsers.Map(
+                Parsers.And(ExpressionParsers.propertyTarget(),
+                        Parsers.And(TokenParsers.Token(TToken.EQ),
+                                    ExpressionParsers.operand())),
+                pair -> new SetItem(pair.first(), pair.second().second()));
+
+        var items = Parsers.SepBy(assignment, TokenParsers.Token(TToken.COMMA));
+
+        var full = Parsers.And(TokenParsers.Token(TToken.SET), items);
+
+        Parser<InputTokens, Statement, String> p =
+                Parsers.Map(full, pair -> new SetStatement(pair.second()));
+        return p;
+    }
+
+    // Retorna RemoveStatement desde REMOVE y los accesos separados por coma.
+    // Solo acepta p.campo: quitar una variable entera no tiene sentido.
+    public static Parser<InputTokens, Statement, String> removeStatement() {
+        var targets = Parsers.SepBy(ExpressionParsers.propertyTarget(),
+                                    TokenParsers.Token(TToken.COMMA));
+
+        var full = Parsers.And(TokenParsers.Token(TToken.REMOVE), targets);
+
+        Parser<InputTokens, Statement, String> p =
+                Parsers.Map(full, pair -> new RemoveStatement(pair.second()));
+        return p;
+    }
+
     // Retorna Program desde las clausulas, el RETURN opcional y el EOF.
     // El EOF es obligatorio: sin el, "MATCH (p) RETURN p basura" pasaria
     // dejando tokens sin leer.
@@ -94,7 +128,9 @@ public final class StatementParsers {
         // casi siempre la util. Las tres se distinguen por su primer token,
         // asi que el orden no cambia que reconoce, solo que mensaje da.
         var clause = Parsers.Or(createStatement(),
-                Parsers.Or(deleteStatement(), matchStatement()));
+                Parsers.Or(setStatement(),
+                        Parsers.Or(removeStatement(),
+                                Parsers.Or(deleteStatement(), matchStatement()))));
 
         var clauses = Parsers.Some(clause);
 

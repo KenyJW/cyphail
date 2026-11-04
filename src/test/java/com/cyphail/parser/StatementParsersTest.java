@@ -8,6 +8,11 @@ import com.cyphail.ast.ComparisonExpression;
 import com.cyphail.ast.ComparisonOperator;
 import com.cyphail.ast.Direction;
 import com.cyphail.ast.CreateStatement;
+import com.cyphail.ast.AndExpression;
+import com.cyphail.ast.DecimalLiteral;
+import com.cyphail.ast.RemoveStatement;
+import com.cyphail.ast.SetItem;
+import com.cyphail.ast.SetStatement;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
 import com.cyphail.ast.NumberLiteral;
@@ -208,5 +213,77 @@ class StatementParsersTest {
     void garbageAfterTheSemicolonStillFails() {
         assertInstanceOf(Fail.class,
                 StatementParsers.program().parse(tokens("MATCH (p:Person) RETURN p; basura")));
+    }
+
+    // ---------- SET, REMOVE y AND (P2) ----------
+
+    @Test
+    void setConUnaAsignacion() {
+        var ok = assertInstanceOf(Ok.class,
+                StatementParsers.setStatement().parse(tokens("SET p.precio = 19.99")));
+
+        assertEquals(new SetStatement(List.of(new SetItem(
+                        new PropertyAccessExpression("p", "precio"),
+                        new DecimalLiteral(19.99)))),
+                ok.token());
+    }
+
+    @Test
+    void setConVariasAsignaciones() {
+        var ok = assertInstanceOf(Ok.class, StatementParsers.setStatement()
+                .parse(tokens("SET p.precio = 19.99, p.rol = 'Dev'")));
+
+        assertEquals(2, ((SetStatement) ok.token()).items().size());
+    }
+
+    @Test
+    void removeConVariosCampos() {
+        var ok = assertInstanceOf(Ok.class,
+                StatementParsers.removeStatement().parse(tokens("REMOVE p.discount, p.temp")));
+
+        assertEquals(new RemoveStatement(List.of(
+                        new PropertyAccessExpression("p", "discount"),
+                        new PropertyAccessExpression("p", "temp"))),
+                ok.token());
+    }
+
+    @Test
+    void removeExigeUnAccesoAPropiedad() {
+        // "REMOVE p" no tiene sentido: se quitan campos, no variables
+        assertInstanceOf(Fail.class, StatementParsers.removeStatement().parse(tokens("REMOVE p")));
+    }
+
+    @Test
+    void elWhereAceptaAnd() {
+        var p = program("MATCH (a:P) WHERE a.age > 18 AND a.age = b.age RETURN a");
+        var where = ((MatchStatement) p.clauses().get(0)).where().orElseThrow();
+
+        assertInstanceOf(AndExpression.class, where);
+    }
+
+    @Test
+    void unaComparacionSolaNoSeEnvuelve() {
+        var p = program("MATCH (a:P) WHERE a.age > 18 RETURN a");
+        var where = ((MatchStatement) p.clauses().get(0)).where().orElseThrow();
+
+        assertInstanceOf(ComparisonExpression.class, where);
+    }
+
+    @Test
+    void tresComparacionesAsocianALaDerecha() {
+        var p = program("MATCH (a:P) WHERE a.x > 1 AND a.y > 2 AND a.z > 3 RETURN a");
+        var where = (AndExpression) ((MatchStatement) p.clauses().get(0)).where().orElseThrow();
+
+        assertInstanceOf(ComparisonExpression.class, where.left());
+        assertInstanceOf(AndExpression.class, where.right());
+    }
+
+    @Test
+    void setYRemoveSonClausulasDelPrograma() {
+        var p = program("MATCH (a:P) SET a.x = 1 REMOVE a.y RETURN a");
+
+        assertEquals(3, p.clauses().size());
+        assertInstanceOf(SetStatement.class, p.clauses().get(1));
+        assertInstanceOf(RemoveStatement.class, p.clauses().get(2));
     }
 }
