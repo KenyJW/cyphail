@@ -8,5 +8,7 @@ public enum ComparisonOperator{
 	LESS_THAN, //<
 	GREATER_THAN, //>
 	NOT_EQUALS, //<>
-	EQUALS //=
+	EQUALS, //=
+	LESS_OR_EQUAL, //<=
+	GREATER_OR_EQUAL //>=
 }

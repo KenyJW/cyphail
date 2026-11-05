@@ -227,6 +227,33 @@ ERROR: Undefined variable 'q'
 
 El parser puede construir un AST aunque posteriormente el analizador detecte una variable no definida.
 
+### Expresiones del `WHERE`
+
+La condición es una expresión booleana completa. La precedencia no se declara en
+ninguna tabla: está en qué nivel del parser llama a cuál.
+
+| Nivel | Construye | Ejemplo |
+|---|---|---|
+| 1 (más flojo) | `OrExpression` | `a OR b` |
+| 2 | `AndExpression` | `a AND b` |
+| 3 | `NotExpression` | `NOT a` |
+| 4 | `ComparisonExpression` | `a.x >= 1` |
+| 5 | operando o grupo | `a.x`, `( ... )` |
+
+Cada nivel llama al siguiente, así que `a OR b AND c` da `(or a (and b c))` sin que
+nadie escriba una regla de precedencia. Los paréntesis vuelven al nivel 1, y no son
+un nodo del AST: solo agrupan.
+
+```text
+>>> .tree MATCH (p) WHERE (p.a > 1 OR p.b > 2) AND NOT p.c >= 3 RETURN p
+Expr: (and (or (> (. p a) 1) (> (. p b) 2)) (not (>= (. p c) 3)))
+```
+
+Los niveles 3 y 5 se referencian a sí mismos, para admitir `NOT NOT x` y
+`((x))`. Un parser es una función `entrada -> resultado`, así que construirlo
+como `source -> nivel().parse(source)` retrasa la construcción hasta que alguien
+de verdad parsea; sin eso la recursión no terminaría.
+
 ### Reglas del analizador
 
 | Regla | Ejemplo rechazado |
@@ -473,9 +500,8 @@ Para P2 será adaptado a:
 - `SetStatement`
 - `RemoveStatement`
 - `DecimalLiteral`
-- `AndExpression`
-- el operador `EQUALS`
-- la tabla de variables
+- `AndExpression`, `OrExpression` y `NotExpression`
+- los operadores `EQUALS`, `>=` y `<=`
 - nombres de variables válidos en Prolog
 
 ## Principios y decisiones de diseño

@@ -63,4 +63,19 @@ class ErrorMessagesTest {
     void textoVacioPideUnMatch() {
         assertEquals("Expected MATCH but found EOF at token 0", reasonOf(""));
     }
+    @Test
+    void faltaElParentesisQueCierraElGrupo() {
+        // el grupo se decide por el "(", no se ofrece como alternativa: por eso
+        // sobrevive su razon y no el Label "an expression" del operando
+        assertEquals("Expected RPAREN but found RETURN at token 11",
+                reasonOf("MATCH (p) WHERE (p.a > 1 RETURN p"));
+    }
+
+    @Test
+    void elWhereSinCondicionSenalaElLugarCorrecto() {
+        // antes el Opt del WHERE retrocedia y el error salia como
+        // "Expected EOF but found WHERE", lejos del problema
+        assertEquals("Expected an expression but found RETURN at token 5",
+                reasonOf("MATCH (p) WHERE RETURN p"));
+    }
 }

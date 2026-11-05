@@ -15,7 +15,9 @@ import com.cyphail.ast.Direction;
 import com.cyphail.ast.Expression;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.NotExpression;
 import com.cyphail.ast.NumberLiteral;
+import com.cyphail.ast.OrExpression;
 import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.PatternStep;
 import com.cyphail.ast.Program;
@@ -301,6 +303,19 @@ public final class PrologCodeGenerator {
                             + expression(and.right())
                             + ")";
 
+            // Mismo estilo que and/2: un termino con el operando adentro.
+            case NotExpression not ->
+                    "not("
+                            + expression(not.operand())
+                            + ")";
+
+            case OrExpression or ->
+                    "or("
+                            + expression(or.left())
+                            + ", "
+                            + expression(or.right())
+                            + ")";
+
             case NumberLiteral number ->
                     Long.toString(number.value());
 
@@ -343,6 +358,10 @@ public final class PrologCodeGenerator {
             case GREATER_THAN -> "'>'";
             case NOT_EQUALS -> "'<>'";
             case EQUALS -> "'='";
+            // Como los de arriba: el operador de Cypher como atomo, no la
+            // sintaxis nativa de Prolog (que escribiria =< y >=).
+            case LESS_OR_EQUAL -> "'<='";
+            case GREATER_OR_EQUAL -> "'>='";
         };
     }
 

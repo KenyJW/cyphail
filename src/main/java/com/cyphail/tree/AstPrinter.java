@@ -16,7 +16,9 @@ import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
 import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.RelationshipPattern;
+import com.cyphail.ast.NotExpression;
 import com.cyphail.ast.NumberLiteral;
+import com.cyphail.ast.OrExpression;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
 import com.cyphail.ast.PropertyEntry;
@@ -85,6 +87,11 @@ public final class AstPrinter {
 
             case AndExpression and ->
                     "(and %s %s)".formatted(expression(and.left()), expression(and.right()));
+
+            case NotExpression not -> "(not %s)".formatted(expression(not.operand()));
+
+            case OrExpression or ->
+                    "(or %s %s)".formatted(expression(or.left()), expression(or.right()));
         };
     }
 
@@ -94,6 +101,8 @@ public final class AstPrinter {
             case GREATER_THAN -> ">";
             case NOT_EQUALS -> "<>";
             case EQUALS -> "=";
+            case LESS_OR_EQUAL -> "<=";
+            case GREATER_OR_EQUAL -> ">=";
         };
     }
 

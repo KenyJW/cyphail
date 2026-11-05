@@ -12,6 +12,8 @@ import com.cyphail.ast.Expression;
 import com.cyphail.ast.LiteralExpression;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.NotExpression;
+import com.cyphail.ast.OrExpression;
 import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.PropertyAccessExpression;
@@ -221,6 +223,14 @@ public final class Analyzer {
             case AndExpression and ->
                     usage(and.left(), defined)
                             .or(() -> usage(and.right(), defined));
+
+            // NOT solo envuelve: lo que importa es lo que trae dentro
+            case NotExpression not -> usage(not.operand(), defined);
+
+            // OR revisa los dos lados, igual que el AND
+            case OrExpression or ->
+                    usage(or.left(), defined)
+                            .or(() -> usage(or.right(), defined));
         };
     }
 

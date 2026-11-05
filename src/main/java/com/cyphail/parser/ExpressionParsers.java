@@ -10,10 +10,13 @@ import com.cyphail.ast.ComparisonOperator;
 import com.cyphail.ast.DecimalLiteral;
 import com.cyphail.ast.AndExpression;
 import com.cyphail.ast.Expression;
+import com.cyphail.ast.NotExpression;
 import com.cyphail.ast.NumberLiteral;
+import com.cyphail.ast.OrExpression;
 import com.cyphail.ast.PropertyAccessExpression;
 import com.cyphail.ast.StringLiteral;
 import com.cyphail.ast.VariableExpression;
+import com.cyphail.lexer.Ok;
 import com.cyphail.lexer.Parser;
 import com.cyphail.lexer.Parsers;
 import com.cyphail.lexer.TToken;
@@ -117,9 +120,28 @@ public final class ExpressionParsers {
                 "an expression");
     }
 
-    // ---------- 3c. Comparacion ----------
+    // ---------- 3c. Grupo entre parentesis (P2) ----------
 
-    // Retorna ComparisonOperator desde LT, GT, NEQ o EQ.
+    // Retorna lo que haya dentro de "( ... )", descartando los parentesis.
+    // Adentro se vuelve al nivel mas flojo: un grupo puede traer un OR.
+    private static Parser<InputTokens, Expression, String> group() {
+        var innerAndClose = Parsers.And(lazyExpression(),
+                                        TokenParsers.Token(TToken.RPAREN));
+
+        var full = Parsers.And(TokenParsers.Token(TToken.LPAREN), innerAndClose);
+
+        return Parsers.Map(full, pair -> pair.second().first());
+    }
+
+    // El grupo vuelve a llamar al nivel mas externo, asi que necesita el
+    // mismo retraso que la negacion: sin esto la construccion no termina.
+    private static Parser<InputTokens, Expression, String> lazyExpression() {
+        return source -> expression().parse(source);
+    }
+
+    // ---------- 3d. Comparacion ----------
+
+    // Retorna ComparisonOperator desde LT, GT, NEQ, EQ, LE o GE.
     // No produce Expression: el operador no es un nodo del AST, es parte de uno.
     public static Parser<InputTokens, ComparisonOperator, String> operator() {
         Parser<InputTokens, ComparisonOperator, String> lt =
@@ -134,7 +156,16 @@ public final class ExpressionParsers {
         Parser<InputTokens, ComparisonOperator, String> eq =
                 Parsers.Map(TokenParsers.Token(TToken.EQ), t -> ComparisonOperator.EQUALS);
 
-        return Parsers.Or(lt, Parsers.Or(gt, Parsers.Or(neq, eq)));
+        Parser<InputTokens, ComparisonOperator, String> le =
+                Parsers.Map(TokenParsers.Token(TToken.LE), t -> ComparisonOperator.LESS_OR_EQUAL);
+
+        Parser<InputTokens, ComparisonOperator, String> ge =
+                Parsers.Map(TokenParsers.Token(TToken.GE), t -> ComparisonOperator.GREATER_OR_EQUAL);
+
+        // El orden no importa: el lexer ya decidio entre "<" y "<=", asi que
+        // cada alternativa espera un token distinto.
+        return Parsers.Or(lt, Parsers.Or(gt, Parsers.Or(neq,
+                          Parsers.Or(eq, Parsers.Or(le, ge)))));
     }
 
     // Retorna ComparisonExpression desde operand operator operand.
@@ -154,16 +185,47 @@ public final class ExpressionParsers {
     // Expresion con o sin comparacion. La completa va primero, o el operando
     // solo ganaria y dejaria el operador sin consumir.
     public static Parser<InputTokens, Expression, String> comparison() {
-        return Parsers.Or(fullComparison(), operand());
+        var plain = Parsers.Or(fullComparison(), operand());
+
+        // El grupo no se ofrece como alternativa, se decide por el primer
+        // token. Puesto en un Or, su razon taparia la del operando o al
+        // contrario: un Or reporta la razon de su ULTIMA alternativa, y aqui
+        // las dos hacen falta. Asi "(p.x > 1" dice "Expected RPAREN" y
+        // "WHERE RETURN" dice "an expression", cada una en su caso.
+        return source -> TokenParsers.Token(TToken.LPAREN).parse(source) instanceof Ok
+                ? group().parse(source)
+                : plain.parse(source);
     }
 
-    // ---------- 3d. Conjuncion (P2) ----------
+    // ---------- 3e. Negacion (P2) ----------
 
-    // Una o mas comparaciones unidas por AND. Con una sola, devuelve esa
-    // comparacion y no envuelve nada: "a > 1" no es un AndExpression.
+    // Retorna NotExpression desde NOT seguido de otra negacion, o la
+    // comparacion sola si no hay NOT. Va entre el AND y la comparacion:
+    // "NOT a AND b" niega solo la a.
+    public static Parser<InputTokens, Expression, String> negation() {
+        var full = Parsers.And(TokenParsers.Token(TToken.NOT), lazyNegation());
+
+        Parser<InputTokens, Expression, String> negated =
+                Parsers.Map(full, pair -> new NotExpression(pair.second()));
+
+        return Parsers.Or(negated, comparison());
+    }
+
+    // El nivel se referencia a si mismo para admitir "NOT NOT x".
+    // Construirlo de una vez seria recursion infinita: un parser es una
+    // funcion entrada -> resultado, asi que este envoltorio retrasa la
+    // construccion hasta que alguien de verdad parsea.
+    private static Parser<InputTokens, Expression, String> lazyNegation() {
+        return source -> negation().parse(source);
+    }
+
+    // ---------- 3f. Conjuncion (P2) ----------
+
+    // Una o mas negaciones unidas por AND. Con una sola, devuelve esa
+    // negacion y no envuelve nada: "a > 1" no es un AndExpression.
     // Asocia a la derecha: "a AND b AND c" da (and a (and b c)).
-    public static Parser<InputTokens, Expression, String> expression() {
-        var parts = Parsers.SepBy(comparison(), TokenParsers.Token(TToken.AND));
+    public static Parser<InputTokens, Expression, String> andLevel() {
+        var parts = Parsers.SepBy(negation(), TokenParsers.Token(TToken.AND));
 
         return Parsers.Map(parts, ExpressionParsers::joinWithAnd);
     }
@@ -173,5 +235,23 @@ public final class ExpressionParsers {
                 ? parts.get(0)
                 : new AndExpression(parts.get(0),
                                     joinWithAnd(parts.subList(1, parts.size())));
+    }
+    // ---------- 3g. Disyuncion (P2) ----------
+
+    // El nivel mas flojo, y el que todos llaman cuando quieren "una expresion".
+    // Una o mas conjunciones unidas por OR. Llamar aqui a andLevel() es lo que
+    // fija la precedencia: "a OR b AND c" da (or a (and b c)) y no al reves,
+    // porque el AND se resuelve completo antes de que el OR vea sus partes.
+    public static Parser<InputTokens, Expression, String> expression() {
+        var parts = Parsers.SepBy(andLevel(), TokenParsers.Token(TToken.OR));
+
+        return Parsers.Map(parts, ExpressionParsers::joinWithOr);
+    }
+
+    private static Expression joinWithOr(List<Expression> parts) {
+        return parts.size() == 1
+                ? parts.get(0)
+                : new OrExpression(parts.get(0),
+                                   joinWithOr(parts.subList(1, parts.size())));
     }
 }

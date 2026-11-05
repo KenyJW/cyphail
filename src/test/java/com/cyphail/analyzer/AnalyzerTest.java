@@ -235,4 +235,36 @@ class AnalyzerTest {
     void relationshipsWithoutAVariableNeverCollide() {
         esCorrecto("MATCH (a)-[:KNOWS]->(b), (c)-[:KNOWS]->(d) RETURN a");
     }
+    // ---------- NOT (P2) ----------
+
+    @Test
+    void notDoesNotHideAnUndefinedVariable() {
+        assertEquals(Optional.of("Undefined variable 'q'"),
+                analyze("MATCH (p) WHERE NOT q.x > 1 RETURN p"));
+    }
+
+    @Test
+    void aNegatedConditionOverADefinedVariableIsCorrect() {
+        esCorrecto("MATCH (p:Person) WHERE NOT p.active RETURN p.name");
+    }
+    // ---------- OR y parentesis (P2) ----------
+
+    @Test
+    void orChecksBothSides() {
+        assertEquals(Optional.of("Undefined variable 'q'"),
+                analyze("MATCH (p) WHERE p.x > 1 OR q.y > 2 RETURN p"));
+    }
+
+    @Test
+    void aGroupedConditionIsCheckedToo() {
+        assertEquals(Optional.of("Undefined variable 'z'"),
+                analyze("MATCH (p) WHERE (p.x > 1 OR z.y > 2) AND NOT p.w >= 3 RETURN p"));
+    }
+
+    @Test
+    void aFullBooleanConditionIsCorrect() {
+        esCorrecto("MATCH (p:Person) "
+                + "WHERE (p.age >= 18 OR NOT p.minor) AND p.age <= 65 "
+                + "RETURN p.name AS name");
+    }
 }

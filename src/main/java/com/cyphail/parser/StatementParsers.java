@@ -6,6 +6,7 @@ package com.cyphail.parser;
 
 import com.cyphail.ast.CreateStatement;
 import com.cyphail.ast.DeleteStatement;
+import com.cyphail.ast.Expression;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.Program;
 import com.cyphail.ast.RemoveStatement;
@@ -45,10 +46,19 @@ public final class StatementParsers {
         var patterns = Parsers.SepBy(PatternParsers.pathPattern(),
                                      TokenParsers.Token(TToken.COMMA));
 
-        var where = Parsers.Opt(
-                Parsers.Map(Parsers.And(TokenParsers.Token(TToken.WHERE),
-                                        ExpressionParsers.expression()),
-                            pair -> pair.second()));
+        // Si la palabra WHERE esta, la condicion es obligatoria. Con un Opt
+        // normal, "WHERE (p.x > 1" retrocedia y dejaba el WHERE sin consumir:
+        // el error salia como "Expected EOF but found WHERE", lejos del
+        // parentesis que faltaba. Mismo arreglo que el RETURN de program().
+        var condition = Parsers.Map(
+                Parsers.And(TokenParsers.Token(TToken.WHERE),
+                            ExpressionParsers.expression()),
+                pair -> Optional.of(pair.second()));
+
+        Parser<InputTokens, Optional<Expression>, String> where =
+                source -> TokenParsers.Token(TToken.WHERE).parse(source) instanceof Ok
+                        ? condition.parse(source)
+                        : new Ok<>(Optional.empty(), source);
 
         var full = Parsers.And(TokenParsers.Token(TToken.MATCH),
                                Parsers.And(patterns, where));
