@@ -205,4 +205,34 @@ class AnalyzerTest {
         assertEquals(Optional.of("Undefined variable 'r'"),
                 analyze("MATCH (a)-[:KNOWS]->(b) RETURN r"));
     }
+    // ---------- la variable de relacion no se repite ----------
+
+    @Test
+    void aRelationshipVariableCannotNameTwoEdges() {
+        assertEquals(Optional.of("Relationship variable 'r' is used more than once"),
+                analyze("MATCH (a)-[r]->(b), (c)-[r]->(d) RETURN a"));
+    }
+
+    @Test
+    void theRepetitionAlsoCountsAcrossClauses() {
+        // son dos clausulas, pero un mismo estatuto y un mismo grafo
+        assertEquals(Optional.of("Relationship variable 'r' is used more than once"),
+                analyze("MATCH (a)-[r]->(b) MATCH (c)-[r]->(d) RETURN a"));
+    }
+
+    @Test
+    void aNodeVariableCanRepeat() {
+        // repetir (b) es como se encadenan dos patrones: significa el mismo nodo
+        esCorrecto("MATCH (a)-[r]->(b) MATCH (b)-[s]->(c) RETURN a");
+    }
+
+    @Test
+    void twoRelationshipsInOnePathAreFine() {
+        esCorrecto("MATCH (a)-[r]->(b)-[s]->(c) RETURN r, s");
+    }
+
+    @Test
+    void relationshipsWithoutAVariableNeverCollide() {
+        esCorrecto("MATCH (a)-[:KNOWS]->(b), (c)-[:KNOWS]->(d) RETURN a");
+    }
 }

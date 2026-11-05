@@ -227,6 +227,30 @@ ERROR: Undefined variable 'q'
 
 El parser puede construir un AST aunque posteriormente el analizador detecte una variable no definida.
 
+### Reglas del analizador
+
+| Regla | Ejemplo rechazado |
+|---|---|
+| Toda variable usada debe estar definida antes | `MATCH (p) RETURN q` |
+| Una variable de relacion nombra una sola arista | `MATCH (a)-[r]->(b), (c)-[r]->(d)` |
+
+Una variable de nodo si puede repetirse: `MATCH (a)-[r]->(b) MATCH (b)-[s]->(c)` significa
+que es el mismo nodo, y es la forma de encadenar dos patrones.
+
+### Tabla de variables
+
+`VariableTable.from(Program)` recorre los patrones del estatuto y devuelve cada variable
+con su tipo (`NODE` o `RELATIONSHIP`) en orden de primera aparicion. Solo `MATCH` y `CREATE`
+definen variables; `SET`, `REMOVE`, `DELETE` y el `RETURN` unicamente las usan.
+
+```text
+MATCH (p:Persona)-[r:TRABAJA_EN]->(e:Empresa) RETURN p
+-> { p: NODE, r: RELATIONSHIP, e: NODE }
+```
+
+Es una funcion pura del AST: el codegen la llama cuando necesita el mapeo, sin que el
+parser tenga que cargarla de etapa en etapa.
+
 ## Datos fake de P1
 
 Las respuestas simuladas se encuentran en:
@@ -470,7 +494,7 @@ Para P2 será adaptado a:
 
 - Integrar el AST definitivo de relaciones con el codegen.
 - Generar metas ejecutables de Prolog.
-- Implementar la tabla de variables y su mapeo a nombres Prolog.
+- Mapear la tabla de variables (`VariableTable.from`) a nombres validos en Prolog.
 - Crear la biblioteca `.pl` del motor.
 - Agregar soporte para las operaciones nuevas del AST.
 - Conectar `SwiPrologEngineBroker` al frontend.

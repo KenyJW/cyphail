@@ -23,6 +23,7 @@ import com.cyphail.ast.SetStatement;
 import com.cyphail.ast.Statement;
 import com.cyphail.ast.VariableExpression;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -61,6 +62,11 @@ public final class Analyzer {
 
     // Retorna el mensaje de error, o vacio si el programa es correcto.
     public static Optional<String> analyze(Program program) {
+        var repeated = repeatedRelationship(program);
+        if (repeated.isPresent()) {
+            return repeated;
+        }
+
         var afterClauses = clauses(program.clauses(), new Scope(Set.of(), Optional.empty()));
 
         if (afterClauses.failed()) {
@@ -70,6 +76,28 @@ public final class Analyzer {
         // el RETURN se revisa al final, con todo lo que quedo definido
         return firstError(program.returnItems().stream().map(ReturnItem::expression).toList(),
                           afterClauses.defined());
+    }
+
+    // Una variable de relacion nombra UNA arista. Nombrarla dos veces pide que
+    // la misma arista este en dos lugares a la vez, asi que es un error. Las de
+    // nodo si se repiten: ahi significa "el mismo nodo", y es como se encadenan
+    // dos patrones.
+    //
+    // Se revisa en todo el programa y no clausula por clausula porque las dos
+    // clausulas de un mismo estatuto hablan del mismo grafo.
+    private static Optional<String> repeatedRelationship(Program program) {
+        var names = program.clauses().stream()
+                .flatMap(clause -> clause.paths().stream())
+                .flatMap(path -> path.steps().stream())
+                .flatMap(step -> step.relationship().variable().stream())
+                .toList();
+
+        // frequency recorre la lista por cada nombre, pero un estatuto trae
+        // un punado de variables: la claridad vale mas que el ahorro.
+        return names.stream()
+                .filter(name -> Collections.frequency(names, name) > 1)
+                .findFirst()
+                .map("Relationship variable '%s' is used more than once"::formatted);
     }
 
     private static Scope clauses(List<Statement> pending, Scope scope) {
