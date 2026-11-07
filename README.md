@@ -256,13 +256,21 @@ de verdad parsea; sin eso la recursión no terminaría.
 
 ### Reglas del analizador
 
-| Regla | Ejemplo rechazado |
-|---|---|
-| Toda variable usada debe estar definida antes | `MATCH (p) RETURN q` |
-| Una variable de relacion nombra una sola arista | `MATCH (a)-[r]->(b), (c)-[r]->(d)` |
+| Regla | SPEC | Ejemplo rechazado |
+|---|---|---|
+| Toda variable usada debe estar definida antes | P1 | `MATCH (p) RETURN q` |
+| Una variable de relación nombra una sola arista | II.6 | `MATCH (a)-[r]->(b), (c)-[r]->(d)` |
+| Un nombre no es nodo y relación a la vez | II.6 | `MATCH (a:N), (b)-[a]->(c)` |
+| Una variable no empieza con `__` | II.7 | `MATCH (__person:Persona)` |
 
-Una variable de nodo si puede repetirse: `MATCH (a)-[r]->(b) MATCH (b)-[s]->(c)` significa
+Una variable de nodo sí puede repetirse: `MATCH (a)-[r]->(b) MATCH (b)-[s]->(c)` significa
 que es el mismo nodo, y es la forma de encadenar dos patrones.
+
+Las dos últimas existen por el mismo motivo: el codegen convierte cada variable del query
+en una de Prolog con el prefijo `__` (`a` pasa a `__A`). Un nombre usado como nodo y como
+relación daría la misma variable de Prolog ligada a un nodo y a una arista, y un nombre que
+ya empieza con `__` chocaría con los que el generador inventa. La restricción no alcanza a
+propiedades ni etiquetas, que se transpilan a átomos: `p.__interno` es válido.
 
 ### Tabla de variables
 

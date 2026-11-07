@@ -267,4 +267,75 @@ class AnalyzerTest {
                 + "WHERE (p.age >= 18 OR NOT p.minor) AND p.age <= 65 "
                 + "RETURN p.name AS name");
     }
+    // ---------- una variable no es nodo y relacion a la vez (SPEC II.6) ----------
+
+    @Test
+    void aNodeVariableCannotAlsoNameARelationship() {
+        // el ejemplo literal del SPEC
+        assertEquals(Optional.of("Variable 'a' is used as a node and as a relationship"),
+                analyze("MATCH (a:N), (b)-[a]->(c) RETURN b"));
+    }
+
+    @Test
+    void theOrderOfTheTwoUsesDoesNotMatter() {
+        // ahora la relacion aparece primero y el nodo despues
+        assertEquals(Optional.of("Variable 'a' is used as a node and as a relationship"),
+                analyze("MATCH (b)-[a]->(c), (a:N) RETURN b"));
+    }
+
+    @Test
+    void theClashIsAlsoDetectedAcrossClauses() {
+        assertEquals(Optional.of("Variable 'r' is used as a node and as a relationship"),
+                analyze("MATCH (x)-[r]->(y) CREATE (r:Persona) RETURN x"));
+    }
+
+    @Test
+    void distinctNamesForNodesAndRelationshipsAreFine() {
+        esCorrecto("MATCH (a:N), (b)-[r]->(c) RETURN a, b, c, r");
+    }
+
+    @Test
+    void aNodeNameRepeatedAsANodeIsStillFine() {
+        // el chequeo nuevo no debe confundirse con el join de nodos
+        esCorrecto("MATCH (a)-[r]->(b) MATCH (b)-[s]->(a) RETURN a");
+    }
+    // ---------- las variables no empiezan con __ (SPEC II.7) ----------
+
+    @Test
+    void aNodeVariableCannotStartWithTwoUnderscores() {
+        // el ejemplo literal del SPEC
+        assertEquals(Optional.of("Variable '__person' cannot start with '__'"),
+                analyze("MATCH (__person:Persona) RETURN __person"));
+    }
+
+    @Test
+    void aRelationshipVariableCannotEither() {
+        assertEquals(Optional.of("Variable '__r' cannot start with '__'"),
+                analyze("MATCH (a)-[__r]->(b) RETURN a"));
+    }
+
+    @Test
+    void anAliasCannotEither() {
+        // el alias tambien llega al codegen, asi que tambien choca
+        assertEquals(Optional.of("Variable '__name' cannot start with '__'"),
+                analyze("MATCH (p) RETURN p.name AS __name"));
+    }
+
+    @Test
+    void oneUnderscoreIsAllowed() {
+        // la regla son DOS: "_p" es un nombre valido
+        esCorrecto("MATCH (_p:Persona) RETURN _p");
+    }
+
+    @Test
+    void underscoresInTheMiddleAreAllowed() {
+        esCorrecto("MATCH (p_1:Persona) RETURN p_1 AS n__ame");
+    }
+
+    @Test
+    void aPropertyCanStartWithTwoUnderscores() {
+        // la restriccion es sobre variables, no sobre propiedades: una
+        // propiedad se transpila a un atomo, no a una variable de Prolog
+        esCorrecto("MATCH (p {__oculto: 1}) RETURN p.__interno");
+    }
 }

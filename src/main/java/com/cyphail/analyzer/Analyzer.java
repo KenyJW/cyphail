@@ -64,9 +64,15 @@ public final class Analyzer {
 
     // Retorna el mensaje de error, o vacio si el programa es correcto.
     public static Optional<String> analyze(Program program) {
-        var repeated = repeatedRelationship(program);
-        if (repeated.isPresent()) {
-            return repeated;
+        // Los chequeos de estructura no dependen del recorrido de ambitos:
+        // miran el programa entero de una vez. Van antes porque si el patron
+        // es contradictorio no tiene sentido ver que variables estan definidas.
+        var structural = reservedName(program)
+                .or(() -> repeatedRelationship(program))
+                .or(() -> nodeUsedAsRelationship(program));
+
+        if (structural.isPresent()) {
+            return structural;
         }
 
         var afterClauses = clauses(program.clauses(), new Scope(Set.of(), Optional.empty()));
@@ -88,11 +94,7 @@ public final class Analyzer {
     // Se revisa en todo el programa y no clausula por clausula porque las dos
     // clausulas de un mismo estatuto hablan del mismo grafo.
     private static Optional<String> repeatedRelationship(Program program) {
-        var names = program.clauses().stream()
-                .flatMap(clause -> clause.paths().stream())
-                .flatMap(path -> path.steps().stream())
-                .flatMap(step -> step.relationship().variable().stream())
-                .toList();
+        var names = relationshipVariables(program);
 
         // frequency recorre la lista por cada nombre, pero un estatuto trae
         // un punado de variables: la claridad vale mas que el ahorro.
@@ -100,6 +102,61 @@ public final class Analyzer {
                 .filter(name -> Collections.frequency(names, name) > 1)
                 .findFirst()
                 .map("Relationship variable '%s' is used more than once"::formatted);
+    }
+
+    // El codegen convierte cada variable del query en una de Prolog poniendole
+    // este prefijo: "a" pasa a ser "__A". Una variable que ya empieza asi
+    // chocaria con los nombres que el generador inventa, y con los del propio
+    // engine (__cy...). Por eso el SPEC las prohibe en el fuente.
+    private static final String RESERVED_PREFIX = "__";
+
+    // Se revisan los nombres que DEFINE el programa -- los de los patrones y
+    // los alias del RETURN -- porque son los unicos que llegan al codegen. Un
+    // "__x" que solo se usa y nunca se define ya falla por no estar definido.
+    private static Optional<String> reservedName(Program program) {
+        var defined = Stream.concat(nodeVariables(program).stream(),
+                                    relationshipVariables(program).stream());
+
+        var aliases = program.returnItems().stream()
+                .flatMap(item -> item.alias().stream());
+
+        return Stream.concat(defined, aliases)
+                .filter(name -> name.startsWith(RESERVED_PREFIX))
+                .findFirst()
+                .map("Variable '%s' cannot start with '__'"::formatted);
+    }
+
+    // Los nombres de relacion del programa, en orden y CON repeticiones: el
+    // chequeo de arriba necesita verlas dos veces para detectarlas.
+    private static List<String> relationshipVariables(Program program) {
+        return program.clauses().stream()
+                .flatMap(clause -> clause.paths().stream())
+                .flatMap(path -> path.steps().stream())
+                .flatMap(step -> step.relationship().variable().stream())
+                .toList();
+    }
+
+    // Los nombres de nodo: el inicial de cada camino y el de llegada de cada paso.
+    private static List<String> nodeVariables(Program program) {
+        return program.clauses().stream()
+                .flatMap(clause -> clause.paths().stream())
+                .flatMap(path -> Stream.concat(
+                        path.start().variable().stream(),
+                        path.steps().stream().flatMap(step -> step.node().variable().stream())))
+                .toList();
+    }
+
+    // Un nombre no puede ser nodo en un lado y relacion en otro. El codegen
+    // convierte cada variable del query en una de Prolog, asi que las dos
+    // apariciones darian la MISMA variable de Prolog ligada a un nodo y a una
+    // arista: el query no unificaria nunca.
+    private static Optional<String> nodeUsedAsRelationship(Program program) {
+        var nodes = nodeVariables(program);
+
+        return relationshipVariables(program).stream()
+                .filter(nodes::contains)
+                .findFirst()
+                .map("Variable '%s' is used as a node and as a relationship"::formatted);
     }
 
     private static Scope clauses(List<Statement> pending, Scope scope) {
