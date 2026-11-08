@@ -1,11 +1,13 @@
 /*
  Cyphail - Grupo 4 (1pm) - EIF400-II-2026-CLoria
  Autor: Kenny Jimenez Wang (CLI/REPL)
+ Modificado por: Jose Moya Perez (Integracion SWI-Prolog)
  */
 package com.cyphail.cli;
 
 import com.cyphail.frontend.CyphailResponse;
 import com.cyphail.frontend.FrontendFactory;
+import com.cyphail.frontend.FrontendSession;
 import com.cyphail.frontend.RequestHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Parameters;
@@ -17,50 +19,97 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-@Command(name = "run", description = "Executes a Cyphail script line by line.")
+@Command(
+        name = "run",
+        description =
+                "Executes a Cyphail script line by line."
+)
 public final class RunCommand implements Callable<Integer> {
 
-    @Parameters(index = "0", description = "Path to the .cyphail script to run.")
+    @Parameters(
+            index = "0",
+            description =
+                    "Path to the .cyphail script to run."
+    )
     Path script;
 
-    private final RequestHandler handler;
+    private final RequestHandler injectedHandler;
     private final PrintStream out;
 
     public RunCommand() {
-        this(FrontendFactory.createP11Handler());
+        this(null, System.out);
     }
 
     RunCommand(RequestHandler handler) {
         this(handler, System.out);
     }
 
-    RunCommand(RequestHandler handler, PrintStream out) {
-        this.handler = handler;
+    RunCommand(
+            RequestHandler handler,
+            PrintStream out
+    ) {
+        this.injectedHandler = handler;
         this.out = out;
     }
 
     @Override
     public Integer call() throws IOException {
         if (!Files.exists(script)) {
-            out.println("ERROR: file not found: " + script);
+            out.println(
+                    "ERROR: file not found: " + script
+            );
             return 1;
         }
-        List<String> lines = Files.readAllLines(script);
+
+        if (injectedHandler != null) {
+            return runScript(injectedHandler);
+        }
+
+        try (
+                FrontendSession session =
+                        FrontendFactory.createP2Session()
+        ) {
+            return runScript(session.handler());
+        } catch (IOException exception) {
+            out.println(
+                    "ERROR: SWI-Prolog engine error: "
+                            + exception.getMessage()
+            );
+            return 1;
+        }
+    }
+
+    private Integer runScript(
+            RequestHandler activeHandler
+    ) throws IOException {
+        List<String> lines =
+                Files.readAllLines(script);
+
         for (String rawLine : lines) {
             String line = rawLine.strip();
-            if (line.isEmpty() || line.startsWith("//")) {
+
+            if (line.isEmpty()
+                    || line.startsWith("//")) {
                 continue;
             }
-            printResponse(handler.handle(line));
+
+            printResponse(
+                    activeHandler.handle(line)
+            );
         }
+
         return 0;
     }
 
-    private void printResponse(CyphailResponse response) {
+    private void printResponse(
+            CyphailResponse response
+    ) {
         if (response.state()) {
             out.println(response.message());
         } else {
-            out.println("ERROR: " + response.message());
+            out.println(
+                    "ERROR: " + response.message()
+            );
         }
     }
 }

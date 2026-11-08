@@ -62,7 +62,29 @@ class CompilerEngineBrokerTest {
         );
 
         assertTrue(
-                receivedCode.get().startsWith("query([match(")
+                receivedCode.get().startsWith(
+                        "ensure_loaded('prolog/cyphail_engine.pl'), "
+                                + "cy_execute(query([match("
+                )
+        );
+
+        assertTrue(
+                receivedCode.get().contains(
+                        "node(__M, ['Movie'], [])"
+                )
+        );
+
+        assertTrue(
+                receivedCode.get().contains(
+                        "property_access("
+                                + "__M, 'title', __Mtitle)"
+                )
+        );
+
+        assertTrue(
+                receivedCode.get().endsWith(
+                        ", Rows)."
+                )
         );
     }
 

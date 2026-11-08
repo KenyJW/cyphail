@@ -60,7 +60,29 @@ class CompileCommandTest {
         String generatedCode = Files.readString(output);
 
         assertTrue(
-                generatedCode.startsWith("query([match(")
+                generatedCode.startsWith(
+                        "ensure_loaded('prolog/cyphail_engine.pl'), "
+                                + "cy_execute(query([match("
+                )
+        );
+
+        assertTrue(
+                generatedCode.contains(
+                        "node(__M, ['Movie'], [])"
+                )
+        );
+
+        assertTrue(
+                generatedCode.contains(
+                        "property_access("
+                                + "__M, 'title', __Mtitle)"
+                )
+        );
+
+        assertTrue(
+                generatedCode.stripTrailing().endsWith(
+                        ", Rows)."
+                )
         );
 
         assertTrue(

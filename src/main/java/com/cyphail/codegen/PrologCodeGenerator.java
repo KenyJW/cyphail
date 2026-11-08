@@ -31,8 +31,10 @@ import com.cyphail.ast.SetStatement;
 import com.cyphail.ast.Statement;
 import com.cyphail.ast.StringLiteral;
 import com.cyphail.ast.VariableExpression;
+import com.cyphail.ast.VariableTable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public final class PrologCodeGenerator {
@@ -41,55 +43,95 @@ public final class PrologCodeGenerator {
     }
 
     public static String generate(Program program) {
+        Objects.requireNonNull(
+                program,
+                "program cannot be null"
+        );
+
+        PrologVariableTable variables =
+                PrologVariableTable.from(
+                        VariableTable.from(program)
+                );
+
         String clauses = join(
                 program.clauses().stream()
-                        .map(PrologCodeGenerator::statement)
+                        .map(statement ->
+                                statement(
+                                        statement,
+                                        variables
+                                )
+                        )
                         .toList()
         );
 
         String returnItems = join(
                 program.returnItems().stream()
-                        .map(PrologCodeGenerator::returnItem)
+                        .map(item ->
+                                returnItem(
+                                        item,
+                                        variables
+                                )
+                        )
                         .toList()
         );
 
-        return "query(["
+        return "ensure_loaded("
+                + atom("prolog/cyphail_engine.pl")
+                + "), "
+                + "cy_execute("
+                + "query(["
                 + clauses
                 + "], ["
                 + returnItems
-                + "]).";
+                + "]), "
+                + PrologVariableTable.ROWS
+                + ").";
     }
 
-    private static String statement(Statement statement) {
+    private static String statement(
+            Statement statement,
+            PrologVariableTable variables
+    ) {
         return switch (statement) {
             case MatchStatement match ->
-                    matchStatement(match);
+                    matchStatement(match, variables);
 
             case CreateStatement create ->
-                    createStatement(create);
+                    createStatement(create, variables);
 
             case DeleteStatement delete ->
-                    deleteStatement(delete);
+                    deleteStatement(delete, variables);
 
             case SetStatement set ->
-                    setStatement(set);
+                    setStatement(set, variables);
 
             case RemoveStatement remove ->
-                    removeStatement(remove);
+                    removeStatement(remove, variables);
         };
     }
 
     private static String matchStatement(
-            MatchStatement match
+            MatchStatement match,
+            PrologVariableTable variables
     ) {
         String patterns = join(
                 match.patterns().stream()
-                        .map(PrologCodeGenerator::pathPattern)
+                        .map(path ->
+                                pathPattern(
+                                        path,
+                                        variables
+                                )
+                        )
                         .toList()
         );
 
         String where = match.where()
-                .map(PrologCodeGenerator::expression)
+                .map(expression ->
+                        expression(
+                                expression,
+                                variables
+                        )
+                )
                 .orElse("none");
 
         return "match(["
@@ -100,11 +142,17 @@ public final class PrologCodeGenerator {
     }
 
     private static String createStatement(
-            CreateStatement create
+            CreateStatement create,
+            PrologVariableTable variables
     ) {
         String patterns = join(
                 create.patterns().stream()
-                        .map(PrologCodeGenerator::pathPattern)
+                        .map(path ->
+                                pathPattern(
+                                        path,
+                                        variables
+                                )
+                        )
                         .toList()
         );
 
@@ -114,11 +162,17 @@ public final class PrologCodeGenerator {
     }
 
     private static String deleteStatement(
-            DeleteStatement delete
+            DeleteStatement delete,
+            PrologVariableTable variables
     ) {
         String targets = join(
                 delete.targets().stream()
-                        .map(PrologCodeGenerator::expression)
+                        .map(target ->
+                                expression(
+                                        target,
+                                        variables
+                                )
+                        )
                         .toList()
         );
 
@@ -128,11 +182,17 @@ public final class PrologCodeGenerator {
     }
 
     private static String setStatement(
-            SetStatement set
+            SetStatement set,
+            PrologVariableTable variables
     ) {
         String items = join(
                 set.items().stream()
-                        .map(PrologCodeGenerator::setItem)
+                        .map(item ->
+                                setItem(
+                                        item,
+                                        variables
+                                )
+                        )
                         .toList()
         );
 
@@ -142,21 +202,34 @@ public final class PrologCodeGenerator {
     }
 
     private static String setItem(
-            SetItem item
+            SetItem item,
+            PrologVariableTable variables
     ) {
         return "set_item("
-                + expression(item.target())
+                + expression(
+                item.target(),
+                variables
+        )
                 + ", "
-                + expression(item.value())
+                + expression(
+                item.value(),
+                variables
+        )
                 + ")";
     }
 
     private static String removeStatement(
-            RemoveStatement remove
+            RemoveStatement remove,
+            PrologVariableTable variables
     ) {
         String targets = join(
                 remove.targets().stream()
-                        .map(PrologCodeGenerator::expression)
+                        .map(target ->
+                                expression(
+                                        target,
+                                        variables
+                                )
+                        )
                         .toList()
         );
 
@@ -166,42 +239,60 @@ public final class PrologCodeGenerator {
     }
 
     private static String pathPattern(
-            PathPattern path
+            PathPattern path,
+            PrologVariableTable variables
     ) {
         if (path.steps().isEmpty()) {
-            return nodePattern(path.start());
+            return nodePattern(
+                    path.start(),
+                    variables
+            );
         }
 
         String steps = join(
                 path.steps().stream()
-                        .map(PrologCodeGenerator::patternStep)
+                        .map(step ->
+                                patternStep(
+                                        step,
+                                        variables
+                                )
+                        )
                         .toList()
         );
 
         return "path("
-                + nodePattern(path.start())
+                + nodePattern(
+                path.start(),
+                variables
+        )
                 + ", ["
                 + steps
                 + "])";
     }
 
     private static String patternStep(
-            PatternStep step
+            PatternStep step,
+            PrologVariableTable variables
     ) {
         return "step("
-                + relationshipPattern(step.relationship())
+                + relationshipPattern(
+                step.relationship(),
+                variables
+        )
                 + ", "
-                + nodePattern(step.node())
+                + nodePattern(
+                step.node(),
+                variables
+        )
                 + ")";
     }
 
     private static String relationshipPattern(
-            RelationshipPattern relationship
+            RelationshipPattern relationship,
+            PrologVariableTable variables
     ) {
         String variable = relationship.variable()
-                .map(name ->
-                        "var(" + atom(name) + ")"
-                )
+                .map(variables::variable)
                 .orElse("anonymous");
 
         String type = relationship.type()
@@ -210,7 +301,12 @@ public final class PrologCodeGenerator {
 
         String properties = join(
                 relationship.properties().stream()
-                        .map(PrologCodeGenerator::property)
+                        .map(property ->
+                                property(
+                                        property,
+                                        variables
+                                )
+                        )
                         .toList()
         );
 
@@ -236,12 +332,11 @@ public final class PrologCodeGenerator {
     }
 
     private static String nodePattern(
-            NodePattern node
+            NodePattern node,
+            PrologVariableTable variables
     ) {
         String variable = node.variable()
-                .map(name ->
-                        "var(" + atom(name) + ")"
-                )
+                .map(variables::variable)
                 .orElse("anonymous");
 
         String labels = join(
@@ -252,7 +347,12 @@ public final class PrologCodeGenerator {
 
         String properties = join(
                 node.properties().stream()
-                        .map(PrologCodeGenerator::property)
+                        .map(property ->
+                                property(
+                                        property,
+                                        variables
+                                )
+                        )
                         .toList()
         );
 
@@ -266,31 +366,40 @@ public final class PrologCodeGenerator {
     }
 
     private static String property(
-            PropertyEntry property
+            PropertyEntry property,
+            PrologVariableTable variables
     ) {
         return "property("
                 + atom(property.name())
                 + ", "
-                + expression(property.value())
+                + expression(
+                property.value(),
+                variables
+        )
                 + ")";
     }
 
     private static String returnItem(
-            ReturnItem item
+            ReturnItem item,
+            PrologVariableTable variables
     ) {
         String alias = item.alias()
                 .map(PrologCodeGenerator::atom)
                 .orElse("none");
 
         return "return_item("
-                + expression(item.expression())
+                + expression(
+                item.expression(),
+                variables
+        )
                 + ", "
                 + alias
                 + ")";
     }
 
     private static String expression(
-            Expression expression
+            Expression expression,
+            PrologVariableTable variables
     ) {
         return switch (expression) {
             case DecimalLiteral decimal ->
@@ -298,22 +407,36 @@ public final class PrologCodeGenerator {
 
             case AndExpression and ->
                     "and("
-                            + expression(and.left())
+                            + expression(
+                            and.left(),
+                            variables
+                    )
                             + ", "
-                            + expression(and.right())
+                            + expression(
+                            and.right(),
+                            variables
+                    )
                             + ")";
 
-            // Mismo estilo que and/2: un termino con el operando adentro.
             case NotExpression not ->
                     "not("
-                            + expression(not.operand())
+                            + expression(
+                            not.operand(),
+                            variables
+                    )
                             + ")";
 
             case OrExpression or ->
                     "or("
-                            + expression(or.left())
+                            + expression(
+                            or.left(),
+                            variables
+                    )
                             + ", "
-                            + expression(or.right())
+                            + expression(
+                            or.right(),
+                            variables
+                    )
                             + ")";
 
             case NumberLiteral number ->
@@ -326,26 +449,39 @@ public final class PrologCodeGenerator {
                     Boolean.toString(bool.value());
 
             case VariableExpression variable ->
-                    "var("
-                            + atom(variable.name())
-                            + ")";
+                    variables.variable(
+                            variable.name()
+                    );
 
             case PropertyAccessExpression property ->
                     "property_access("
-                            + atom(property.variable())
+                            + variables.variable(
+                            property.variable()
+                    )
                             + ", "
                             + atom(property.property())
+                            + ", "
+                            + variables.property(
+                            property.variable(),
+                            property.property()
+                    )
                             + ")";
 
             case ComparisonExpression comparison ->
                     "compare("
-                            + expression(comparison.left())
+                            + expression(
+                            comparison.left(),
+                            variables
+                    )
                             + ", "
                             + comparisonOperator(
                             comparison.operator()
                     )
                             + ", "
-                            + expression(comparison.right())
+                            + expression(
+                            comparison.right(),
+                            variables
+                    )
                             + ")";
         };
     }
@@ -358,8 +494,6 @@ public final class PrologCodeGenerator {
             case GREATER_THAN -> "'>'";
             case NOT_EQUALS -> "'<>'";
             case EQUALS -> "'='";
-            // Como los de arriba: el operador de Cypher como atomo, no la
-            // sintaxis nativa de Prolog (que escribiria =< y >=).
             case LESS_OR_EQUAL -> "'<='";
             case GREATER_OR_EQUAL -> "'>='";
         };

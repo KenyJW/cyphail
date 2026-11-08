@@ -7,11 +7,11 @@ package com.cyphail.codegen;
 import com.cyphail.ast.AndExpression;
 import com.cyphail.ast.ComparisonExpression;
 import com.cyphail.ast.ComparisonOperator;
-import com.cyphail.ast.NumberLiteral;
 import com.cyphail.ast.DecimalLiteral;
 import com.cyphail.ast.Direction;
 import com.cyphail.ast.MatchStatement;
 import com.cyphail.ast.NodePattern;
+import com.cyphail.ast.NumberLiteral;
 import com.cyphail.ast.PathPattern;
 import com.cyphail.ast.PatternStep;
 import com.cyphail.ast.Program;
@@ -29,6 +29,10 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class PrologCodeGeneratorTest {
+
+    private static final String PREFIX =
+            "ensure_loaded('prolog/cyphail_engine.pl'), "
+                    + "cy_execute(";
 
     @Test
     void generatesPrologForSimpleMatchQuery() {
@@ -65,8 +69,12 @@ class PrologCodeGeneratorTest {
                 PrologCodeGenerator.generate(program);
 
         String expected =
-                "query([match([node(var('m'), ['Movie'], [])], none)], "
-                        + "[return_item(property_access('m', 'title'), 'title')]).";
+                PREFIX
+                        + "query([match([node("
+                        + "__M, ['Movie'], [])], none)], "
+                        + "[return_item(property_access("
+                        + "__M, 'title', __Mtitle), "
+                        + "'title')]), Rows).";
 
         assertEquals(expected, result);
     }
@@ -125,20 +133,38 @@ class PrologCodeGeneratorTest {
                 PrologCodeGenerator.generate(program);
 
         String expected =
-                "query([match([path("
-                        + "node(var('p'), ['Person'], []), "
+                PREFIX
+                        + "query([match([path("
+                        + "node(__P, ['Person'], []), "
                         + "[step(relationship("
-                        + "var('r'), 'ACTED_IN', [], out), "
-                        + "node(var('m'), ['Movie'], []))]"
+                        + "__R, 'ACTED_IN', [], out), "
+                        + "node(__M, ['Movie'], []))]"
                         + ")], none)], "
                         + "[return_item(property_access("
-                        + "'m', 'title'), 'title')]).";
+                        + "__M, 'title', __Mtitle), "
+                        + "'title')]), Rows).";
 
         assertEquals(expected, result);
     }
 
     @Test
     void generatesPrologForSetStatement() {
+        NodePattern product = new NodePattern(
+                Optional.of("p"),
+                List.of("Product"),
+                List.of()
+        );
+
+        MatchStatement match = new MatchStatement(
+                List.of(
+                        new PathPattern(
+                                product,
+                                List.of()
+                        )
+                ),
+                Optional.empty()
+        );
+
         SetItem price = new SetItem(
                 new PropertyAccessExpression(
                         "p",
@@ -152,7 +178,7 @@ class PrologCodeGeneratorTest {
         );
 
         Program program = new Program(
-                List.of(set),
+                List.of(match, set),
                 List.of()
         );
 
@@ -160,15 +186,35 @@ class PrologCodeGeneratorTest {
                 PrologCodeGenerator.generate(program);
 
         String expected =
-                "query([set([set_item("
-                        + "property_access('p', 'precio'), "
-                        + "19.99)])], []).";
+                PREFIX
+                        + "query(["
+                        + "match([node(__P, ['Product'], [])], none), "
+                        + "set([set_item(property_access("
+                        + "__P, 'precio', __Pprecio), "
+                        + "19.99)])"
+                        + "], []), Rows).";
 
         assertEquals(expected, result);
     }
 
     @Test
     void generatesPrologForRemoveStatement() {
+        NodePattern product = new NodePattern(
+                Optional.of("p"),
+                List.of("Product"),
+                List.of()
+        );
+
+        MatchStatement match = new MatchStatement(
+                List.of(
+                        new PathPattern(
+                                product,
+                                List.of()
+                        )
+                ),
+                Optional.empty()
+        );
+
         RemoveStatement remove =
                 new RemoveStatement(
                         List.of(
@@ -180,7 +226,7 @@ class PrologCodeGeneratorTest {
                 );
 
         Program program = new Program(
-                List.of(remove),
+                List.of(match, remove),
                 List.of()
         );
 
@@ -188,8 +234,12 @@ class PrologCodeGeneratorTest {
                 PrologCodeGenerator.generate(program);
 
         String expected =
-                "query([remove([property_access("
-                        + "'p', 'discount')])], []).";
+                PREFIX
+                        + "query(["
+                        + "match([node(__P, ['Product'], [])], none), "
+                        + "remove([property_access("
+                        + "__P, 'discount', __Pdiscount)])"
+                        + "], []), Rows).";
 
         assertEquals(expected, result);
     }
@@ -246,12 +296,15 @@ class PrologCodeGeneratorTest {
                 PrologCodeGenerator.generate(program);
 
         String expected =
-                "query([match([node(var('p'), ['Person'], [])], "
-                        + "and(compare(property_access('p', 'age'), '>', 18), "
-                        + "compare(property_access('p', 'age'), '<', 65)))], []).";
+                PREFIX
+                        + "query([match([node("
+                        + "__P, ['Person'], [])], "
+                        + "and(compare(property_access("
+                        + "__P, 'age', __Page), '>', 18), "
+                        + "compare(property_access("
+                        + "__P, 'age', __Page), '<', 65)))], "
+                        + "[]), Rows).";
 
         assertEquals(expected, result);
     }
-
-
 }

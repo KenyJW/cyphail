@@ -7,12 +7,12 @@ Prototipo de motor de consultas sobre grafos con un dialecto propio inspirado en
 | Integrante | Responsabilidad principal |
 |---|---|
 | Kenny Jiménez Wang | CLI, REPL, lexer, parser, AST, analizador y `.tree` |
-| José Moya Pérez | Engine Broker, comunicación MQI, integración con SWI-Prolog, datos JSON y generación de código Prolog |
+| José Moya Pérez | Codegen, tabla de variables Prolog, Engine Broker, comunicación MQI, integración con SWI-Prolog y biblioteca del motor `.pl` |
 | Sebastián Ramírez Calderón | Estructura inicial del proyecto, frontend, router y handlers; se retiró del curso después de P1.1 |
 
 > Sebastián entregó su parte antes de salir del curso. Su código continúa acreditado en los archivos correspondientes. Desde P1.1, el proyecto es desarrollado por Kenny Jiménez Wang y José Moya Pérez.
 
-> **Estado: P2 en desarrollo.** El proyecto cuenta con lexer, parser, AST, análisis semántico, generación de código Prolog y un REPL con soporte para estatutos multilínea y el comando `.load`. También dispone de comunicación real con SWI-Prolog mediante MQI. El REPL todavía utiliza `FakeEngine` mientras se termina de adaptar el generador al AST de P2 y se integra la biblioteca Prolog definitiva.
+> **Estado: integración funcional de P2.** El proyecto cuenta con lexer, parser, AST, análisis semántico, generación de código Prolog, tabla de variables y un REPL con soporte para estatutos multilínea y `.load`. El frontend utiliza el motor real de SWI-Prolog mediante MQI; el proceso se inicia automáticamente y se cierra al terminar la sesión.
 
 ## Prerrequisitos
 
@@ -159,15 +159,30 @@ RETURN m.title AS title,
        m.year AS year
 ```
 
-Representación Prolog generada durante P1:
+Ejemplo simplificado de una meta Prolog ejecutable generada durante P2:
 
 ```prolog
-query([match([node(var('m'), ['Movie'], [])], compare(property_access('m', 'year'), '>', 2000))], [return_item(property_access('m', 'title'), 'title'), return_item(property_access('m', 'year'), 'year')]).
+ensure_loaded('prolog/cyphail_engine.pl'),
+cy_execute(
+    query(
+        [
+            match(
+                [node(__M, ['Movie'], [])],
+                compare(property_access(__M, 'year', __Myear), '>', 2000)
+            )
+        ],
+        [
+            return_item(property_access(__M, 'title', __Mtitle), 'title'),
+            return_item(property_access(__M, 'year', __Myear), 'year')
+        ]
+    ),
+    Rows
+).
 ```
 
 Si el programa contiene un error sintáctico o una variable no definida, se informa el error y no se genera el archivo de salida.
 
-El generador se encuentra en proceso de adaptación al AST de P2 para producir metas ejecutables por el motor real de SWI-Prolog.
+El generador produce metas ejecutables, transforma las variables de Cyphail en variables Prolog con prefijo `__` y utiliza `Rows` para recibir la tabla producida por el motor.
 
 ## El comando `.tree`
 
@@ -286,25 +301,21 @@ MATCH (p:Persona)-[r:TRABAJA_EN]->(e:Empresa) RETURN p
 Es una funcion pura del AST: el codegen la llama cuando necesita el mapeo, sin que el
 parser tenga que cargarla de etapa en etapa.
 
-## Datos fake de P1
+## Motor de grafos en SWI-Prolog
 
-Las respuestas simuladas se encuentran en:
+El motor anterior de P1 fue reemplazado por la biblioteca:
 
 ```text
-data/fake-responses.json
+prolog/cyphail_engine.pl
 ```
 
-`FakeEngine` lee el archivo cada vez que ejecuta una consulta. Esto permite cambiar los datos sin recompilar el JAR.
+La biblioteca mantiene nodos, relaciones y propiedades durante la sesión mediante los predicados dinámicos `cy_node/2`, `cy_edge/4` y `cy_property/3`. Su punto de entrada es `cy_execute/2`, que ejecuta la representación generada por el codegen y devuelve la tabla textual en `Rows`.
 
-Gson convierte el JSON en objetos `FakeResponseCatalog` y `FakeResponseData`. `JsonFakeDataSource` busca la respuesta relacionada con la consulta normalizada.
-
-Si no encuentra una respuesta específica, el motor produce una respuesta genérica.
-
-`FakeEngine` se mantiene temporalmente conectado al frontend para conservar el funcionamiento de P1 mientras se completa el motor real de P2.
+El motor implementa `MATCH`, `CREATE`, `SET`, `REMOVE` y `DELETE`, además de comparaciones, expresiones `AND`, `OR` y `NOT`, caminos con relaciones y la construcción de los resultados de `RETURN`.
 
 ## Integración con SWI-Prolog mediante MQI
 
-La integración real se divide en cuatro componentes:
+La integración real se divide en los siguientes componentes:
 
 | Componente | Responsabilidad |
 |---|---|
@@ -312,6 +323,8 @@ La integración real se divide en cuatro componentes:
 | `MqiClient` | Maneja el socket, handshake, framing y timeout del protocolo MQI |
 | `MqiResponseDecoder` | Recorre la respuesta JSON con Gson y extrae bindings |
 | `SwiPrologEngineBroker` | Ejecuta código Prolog y convierte el binding `Rows` en un `EngineResult` |
+| `FrontendSession` | Mantiene el handler y cierra el cliente y el proceso al terminar |
+| `FrontendFactory` | Construye el pipeline real conectado con SWI-Prolog |
 
 ### Flujo de comunicación
 
@@ -341,8 +354,13 @@ Código Prolog
 - Búsqueda recursiva del binding `Rows`.
 - Cierre del cliente y del proceso.
 - Manejo de errores de comunicación y respuestas inválidas.
+- Biblioteca `prolog/cyphail_engine.pl` para ejecutar las metas generadas.
+- Almacenamiento de nodos, relaciones y propiedades durante la sesión.
+- Ejecución de `MATCH`, `CREATE`, `SET`, `REMOVE` y `DELETE`.
+- Evaluación de comparaciones y expresiones `AND`, `OR` y `NOT`.
+- Generación de tablas para los elementos de `RETURN`.
 
-El broker real ya funciona de forma aislada. Su conexión definitiva con `FrontendFactory` se realizará cuando el codegen de P2 produzca las metas que utilizará la biblioteca Prolog.
+`FrontendFactory` construye una `FrontendSession` con el `SwiPrologEngineBroker`. El REPL y el comando `run` inician SWI-Prolog mediante MQI y cierran el socket y el proceso al terminar.
 
 ## Correr las pruebas
 
@@ -385,13 +403,14 @@ Entre las pruebas automatizadas se encuentran:
 - `CasosProfesorTest`
 - `AnalyzerTest`
 - `PrologCodeGeneratorTest`
+- `PrologVariableTableTest`
 - `CompilerEngineBrokerTest`
-- `JsonFakeDataSourceTest`
 - `CompileCommandTest`
 - `MqiClientIntegrationTest`
 - `MqiProcessIntegrationTest`
 - `MqiResponseDecoderTest`
 - `SwiPrologEngineBrokerIntegrationTest`
+- `FrontendFactoryTest`
 
 ## Arquitectura
 
@@ -403,37 +422,11 @@ Texto Cyphail
     -> Parser
     -> Program (AST)
     -> Analyzer
+    -> VariableTable
     -> PrologCodeGenerator
     -> CompilerEngineBroker
-    -> EngineBroker
-```
-
-Durante la transición de P1 a P2 existen dos implementaciones de `EngineBroker`:
-
-```text
-EngineBroker
-    -> FakeEngine
     -> SwiPrologEngineBroker
-```
-
-Actualmente el REPL utiliza esta ruta:
-
-```text
-Texto Cyphail
-    -> Lexer
-    -> Parser
-    -> Analyzer
-    -> PrologCodeGenerator
-    -> CompilerEngineBroker
-    -> FakeEngine
-    -> data/fake-responses.json
-```
-
-La ruta de P2, ya comprobada mediante una prueba de integración, es:
-
-```text
-Meta Prolog
-    -> SwiPrologEngineBroker
+    -> MqiProcess
     -> MqiClient
     -> SWI-Prolog
     -> MqiResponseDecoder
@@ -443,7 +436,7 @@ Meta Prolog
 
 `CompilerEngineBroker` aplica el parser, el análisis semántico y el codegen antes de delegar la ejecución a otra implementación de `EngineBroker`.
 
-Esta separación permite sustituir `FakeEngine` por `SwiPrologEngineBroker` sin modificar el parser ni el frontend.
+Esta separación permitió sustituir el motor simulado de P1 por `SwiPrologEngineBroker` sin modificar el lexer, el parser ni el AST.
 
 ## Paquetes principales
 
@@ -458,7 +451,6 @@ Esta separación permite sustituir `FakeEngine` por `SwiPrologEngineBroker` sin 
 | `com.cyphail.codegen` | Generación de código Prolog |
 | `com.cyphail.frontend` | Router y handlers |
 | `com.cyphail.engine` | Contratos y brokers |
-| `com.cyphail.engine.data` | Lectura de respuestas fake en JSON |
 | `com.cyphail.engine.mqi` | Proceso, cliente y decodificación de MQI |
 
 ## Sobre el lexer y el parser
@@ -488,20 +480,20 @@ La entrada es inmutable. Avanzar produce una nueva entrada, por lo que un parser
 
 `PrologCodeGenerator` recorre el AST mediante pattern matching sobre interfaces selladas y records.
 
-Ejemplos de la representación utilizada en P1:
+Ejemplos de la representación utilizada en P2:
 
 | AST | Representación Prolog |
 |---|---|
-| Variable `m` | `var('m')` |
-| Propiedad `m.title` | `property_access('m', 'title')` |
+| Variable `m` | `__M` |
+| Propiedad `m.title` | `property_access(__M, 'title', __Mtitle)` |
 | Número `2000` | `2000` |
 | String `"adult"` | `'adult'` |
-| Comparación | `compare(property_access('m', 'year'), '>', 2000)` |
-| Nodo `(m:Movie)` | `node(var('m'), ['Movie'], [])` |
+| Comparación | `compare(property_access(__M, 'year', __Myear), '>', 2000)` |
+| Nodo `(m:Movie)` | `node(__M, ['Movie'], [])` |
 
 El generador no modifica el AST ni conserva estado. Recibe un `Program` y devuelve un nuevo `String`.
 
-Para P2 será adaptado a:
+Para P2 el generador soporta:
 
 - `PathPattern`
 - relaciones y direcciones
@@ -524,16 +516,15 @@ Para P2 será adaptado a:
 - **Administración de recursos:** los componentes MQI implementan `AutoCloseable`.
 - **Pruebas opcionales de integración:** el proyecto puede probarse sin exigir un proceso externo en cada ejecución.
 
-## Trabajo pendiente de P2
+## Integración completada en P2
 
-- Integrar el AST definitivo de relaciones con el codegen.
-- Generar metas ejecutables de Prolog.
-- Mapear la tabla de variables (`VariableTable.from`) a nombres validos en Prolog.
-- Crear la biblioteca `.pl` del motor.
-- Agregar soporte para las operaciones nuevas del AST.
-- Conectar `SwiPrologEngineBroker` al frontend.
-- Mantener las funciones de P1 que todavía correspondan.
-- Agregar pruebas del pipeline completo desde parser hasta SWI-Prolog.
+- AST de relaciones integrado con el codegen.
+- Metas ejecutables de Prolog.
+- Mapeo de `VariableTable` a nombres válidos en Prolog.
+- Biblioteca `prolog/cyphail_engine.pl`.
+- Soporte de codegen para caminos, relaciones, `SET`, `REMOVE`, decimales y expresiones lógicas.
+- `SwiPrologEngineBroker` conectado al frontend.
+- Prueba del pipeline completo desde el parser hasta SWI-Prolog.
 
 ## Créditos y fuentes
 
