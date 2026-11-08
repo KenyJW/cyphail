@@ -1,0 +1,66 @@
+// Cyphail - Grupo 4 (1pm) - EIF400-II-2026-CLoria
+// Autor: Kenny Jimenez Wang
+//
+// Grafo base de los casos de P2. Se carga con:
+//     .load "casos-p2/grafo.cyphail"
+//
+// No son datos al azar: cada valor esta puesto para que algun caso
+// distinga. Los umbrales que usan los casos son 2000, 2010 y 2018 en
+// "desde", el pais en Empresa, y el porcentaje decimal de SOCIO_DE.
+
+// ---------- Personas ----------
+// Edades a los dos lados de 18 y de 30; "activo" verdadero y falso.
+
+CREATE (:Persona {nombre: "Ana", edad: 34, activo: true, ciudad: "Heredia"});
+CREATE (:Persona {nombre: "Luis", edad: 28, activo: false, ciudad: "San Jose"});
+CREATE (:Persona {nombre: "Marta", edad: 45, activo: true, ciudad: "Alajuela"});
+CREATE (:Persona {nombre: "Carlos", edad: 19, activo: true, ciudad: "Cartago"});
+
+// ---------- Empresas ----------
+// Una de CR y otra de fuera, para que un NOT sobre el pais deje una sola.
+
+CREATE (:Empresa {nombre: "Acme", pais: "CR", fundada: 1998});
+CREATE (:Empresa {nombre: "Globex", pais: "MX", fundada: 2012});
+
+// ---------- CONOCE ----------
+// Los "desde" son 1999, 2005, 2012, 2019 y 2021: hay relaciones por
+// encima y por debajo de cada umbral, asi que ningun filtro devuelve
+// la lista entera ni la deja vacia.
+
+MATCH (a:Persona {nombre: "Ana"}), (b:Persona {nombre: "Luis"})
+CREATE (a)-[:CONOCE {desde: 1999}]->(b);
+
+MATCH (a:Persona {nombre: "Ana"}), (b:Persona {nombre: "Marta"})
+CREATE (a)-[:CONOCE {desde: 2012}]->(b);
+
+MATCH (a:Persona {nombre: "Luis"}), (b:Persona {nombre: "Marta"})
+CREATE (a)-[:CONOCE {desde: 2019}]->(b);
+
+MATCH (a:Persona {nombre: "Marta"}), (b:Persona {nombre: "Carlos"})
+CREATE (a)-[:CONOCE {desde: 2005}]->(b);
+
+MATCH (a:Persona {nombre: "Carlos"}), (b:Persona {nombre: "Ana"})
+CREATE (a)-[:CONOCE {desde: 2021}]->(b);
+
+// ---------- TRABAJA_EN ----------
+
+MATCH (p:Persona {nombre: "Ana"}), (e:Empresa {nombre: "Acme"})
+CREATE (p)-[:TRABAJA_EN {cargo: "Dev", desde: 2019}]->(e);
+
+MATCH (p:Persona {nombre: "Luis"}), (e:Empresa {nombre: "Acme"})
+CREATE (p)-[:TRABAJA_EN {cargo: "QA", desde: 2015}]->(e);
+
+MATCH (p:Persona {nombre: "Marta"}), (e:Empresa {nombre: "Globex"})
+CREATE (p)-[:TRABAJA_EN {cargo: "Gerente", desde: 2008}]->(e);
+
+// ---------- SOCIO_DE ----------
+// El porcentaje es decimal a proposito: es lo que ejercita DecimalLiteral.
+//
+// Marta es socia de Acme, donde trabaja Ana, y Ana y Marta se conocen.
+// Ese triangulo es el que necesita el caso que cruza las tres relaciones.
+
+MATCH (p:Persona {nombre: "Marta"}), (e:Empresa {nombre: "Acme"})
+CREATE (p)-[:SOCIO_DE {porcentaje: 30.5}]->(e);
+
+MATCH (p:Persona {nombre: "Carlos"}), (e:Empresa {nombre: "Globex"})
+CREATE (p)-[:SOCIO_DE {porcentaje: 12.75}]->(e);
