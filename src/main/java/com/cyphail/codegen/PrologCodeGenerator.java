@@ -385,7 +385,11 @@ public final class PrologCodeGenerator {
     ) {
         String alias = item.alias()
                 .map(PrologCodeGenerator::atom)
-                .orElse("none");
+                .orElseGet(
+                        () -> defaultReturnHeader(
+                                item.expression()
+                        )
+                );
 
         return "return_item("
                 + expression(
@@ -395,6 +399,24 @@ public final class PrologCodeGenerator {
                 + ", "
                 + alias
                 + ")";
+    }
+
+    private static String defaultReturnHeader(
+            Expression expression
+    ) {
+        if (expression instanceof PropertyAccessExpression property) {
+            return atom(
+                    property.variable()
+                            + "."
+                            + property.property()
+            );
+        }
+
+        if (expression instanceof VariableExpression variable) {
+            return atom(variable.name());
+        }
+
+        return "none";
     }
 
     private static String expression(

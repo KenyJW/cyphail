@@ -236,6 +236,7 @@ cy_create_node(
     cy_ensure_node(NodeId, Labels),
     cy_write_properties(NodeId, Properties).
 
+
 cy_resolve_or_create_node_id(
     Variable,
     NodeId
@@ -256,6 +257,7 @@ cy_resolve_or_create_node_id(
     NodeId,
     NodeId
 ).
+
 
 cy_ensure_node(NodeId, NewLabels) :-
     cy_node(NodeId, ExistingLabels),
@@ -370,13 +372,6 @@ cy_create_edge(
 
 
 cy_resolve_or_create_edge_id(
-    anonymous,
-    EdgeId
-) :-
-    !,
-    cy_new_id(edge, EdgeId).
-
-cy_resolve_or_create_edge_id(
     Variable,
     EdgeId
 ) :-
@@ -384,6 +379,13 @@ cy_resolve_or_create_edge_id(
     !,
     cy_new_id(edge, EdgeId),
     Variable = EdgeId.
+
+cy_resolve_or_create_edge_id(
+    anonymous,
+    EdgeId
+) :-
+    !,
+    cy_new_id(edge, EdgeId).
 
 cy_resolve_or_create_edge_id(
     EdgeId,
@@ -497,11 +499,14 @@ cy_truth(and(Left, Right)) :-
     cy_truth(Left),
     cy_truth(Right).
 
-cy_truth(or(Left, _)) :-
-    cy_truth(Left).
-
-cy_truth(or(_, Right)) :-
-    cy_truth(Right).
+cy_truth(or(Left, Right)) :-
+    (
+        cy_truth(Left)
+    ->
+        true
+    ;
+        cy_truth(Right)
+    ).
 
 cy_truth(not(Expression)) :-
     \+ cy_truth(Expression).
@@ -561,16 +566,33 @@ cy_equal(Left, Right) :-
 % ============================================================
 % RETURN
 % ============================================================
-
 cy_return_values([], []).
 
 cy_return_values(
     [return_item(Expression, _) | Rest],
     [Value | Values]
 ) :-
-    cy_eval_expression(Expression, Value),
+    cy_eval_return_expression(Expression, Value),
     cy_return_values(Rest, Values).
 
+
+cy_eval_return_expression(
+    property_access(EntityId, PropertyName, Output),
+    Value
+) :-
+    !,
+    (
+        cy_property(EntityId, PropertyName, StoredValue)
+    ->
+        Output = StoredValue,
+        Value = StoredValue
+    ;
+        Output = null,
+        Value = null
+    ).
+
+cy_eval_return_expression(Expression, Value) :-
+    cy_eval_expression(Expression, Value).
 
 cy_headers([], []).
 
@@ -586,6 +608,14 @@ cy_header(_, Alias, Header) :-
     Alias \== none,
     !,
     cy_cell_text(Alias, Header).
+
+    cy_header(
+        Expression,
+        none,
+        "id"
+    ) :-
+        var(Expression),
+        !.
 
 cy_header(
     property_access(_, PropertyName, _),
@@ -683,6 +713,7 @@ cy_bind_reference(Variable, _) :-
 
 cy_bind_reference(Variable, Value) :-
     Variable = Value.
+
 
 cy_new_id(node, Id) :-
     flag(
