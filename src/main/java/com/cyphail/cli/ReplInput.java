@@ -29,6 +29,15 @@ public final class ReplInput {
 
     private static final String EXIT = ".exit";
 
+    private static final String COMMENT = "//";
+
+    // Si la linea es solo un comentario. Vive aqui y no en cada consumidor
+    // para que el REPL y .load no puedan discrepar sobre que es un comentario.
+    // Solo al inicio de linea: asi un "http://..." dentro de una cadena sobrevive.
+    public static boolean isComment(String line) {
+        return line.strip().startsWith(COMMENT);
+    }
+
     private ReplInput() {
     }
 
@@ -40,6 +49,13 @@ public final class ReplInput {
         // o el usuario quedaria atrapado sin forma de cerrar la sesion.
         if (trimmed.equalsIgnoreCase(EXIT)) {
             return command(trimmed);
+        }
+
+        // Una linea de comentario no aporta nada al estatuto. Se descarta y
+        // el pendiente queda como estaba: los casos del profesor traen un
+        // comentario encima, y antes se pegaba al estatuto y lo rompia.
+        if (isComment(trimmed)) {
+            return new Feed(List.of(), pending, Optional.empty());
         }
 
         // Un comando con punto es de una sola linea y no lleva ';'.

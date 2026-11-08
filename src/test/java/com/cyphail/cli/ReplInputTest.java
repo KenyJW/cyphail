@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ReplInputTest {
@@ -70,5 +71,42 @@ class ReplInputTest {
 
         assertEquals(List.of(), feed.statements());
         assertEquals("MATCH (m:Movie)", feed.pending());
+    }
+    // ---------- lineas de comentario ----------
+
+    @Test
+    void aCommentLineIsIgnored() {
+        // los casos del profesor traen un comentario encima; antes se pegaba
+        // al estatuto siguiente y lo rompia con "Unrecognized character '/'"
+        var feed = ReplInput.feed("", "// Caso 1 de la guia");
+
+        assertEquals(List.of(), feed.statements());
+        assertTrue(feed.pending().isEmpty());
+        assertTrue(feed.command().isEmpty());
+        assertEquals(">>> ", ReplInput.prompt(feed.pending()));
+    }
+
+    @Test
+    void aCommentInsideAStatementLeavesThePendingIntact() {
+        var feed = ReplInput.feed("MATCH (m:Movie)", "  // una nota");
+
+        assertEquals("MATCH (m:Movie)", feed.pending());
+        assertEquals(List.of(), feed.statements());
+    }
+
+    @Test
+    void aUrlInsideAStringIsNotAComment() {
+        // el // va dentro de la cadena, no al inicio de linea
+        var feed = ReplInput.feed("", "CREATE (s {url: \"http://x.com\"});");
+
+        assertEquals(List.of("CREATE (s {url: \"http://x.com\"})"), feed.statements());
+    }
+
+    @Test
+    void theReplAndLoadAgreeOnWhatACommentIs() {
+        assertTrue(ReplInput.isComment("// algo"));
+        assertTrue(ReplInput.isComment("   // indentado"));
+        assertFalse(ReplInput.isComment("MATCH (p) // al final"));
+        assertFalse(ReplInput.isComment("CREATE (s {url: \"http://x\"})"));
     }
 }

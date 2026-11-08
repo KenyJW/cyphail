@@ -73,11 +73,10 @@ public final class LoadCommand {
         }
     }
 
-    // Descarta las lineas que empiezan con //, como ya lo hace RunCommand.
-    // Solo al inicio de linea: asi un "http://..." dentro de una cadena sobrevive.
+    // Descarta las lineas de comentario, con el mismo criterio que el REPL.
     private static String withoutComments(String source) {
         return source.lines()
-                .filter(line -> !line.strip().startsWith("//"))
+                .filter(line -> !ReplInput.isComment(line))
                 .collect(Collectors.joining(NL));
     }
 }
