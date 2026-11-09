@@ -16,6 +16,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 
 @Command(
@@ -24,22 +27,40 @@ import java.util.concurrent.Callable;
 )
 public final class ReplCommand implements Callable<Integer> {
 
+    // El grafo con el que abre la sesion. La guia pide que los casos corran
+    // contra un grafo ya disponible al levantar el servidor, sin un .load
+    // manual de por medio.
+    private static final String BASE_GRAPH = "casos-p2/grafo.cyphail";
+
     private final RequestHandler injectedHandler;
     private final InputStream in;
     private final PrintStream out;
+    private final Optional<Path> baseGraph;
 
     public ReplCommand() {
-        this(null, System.in, System.out);
+        this(null, System.in, System.out, Optional.of(Path.of(BASE_GRAPH)));
     }
 
+    // Sin grafo base: lo usan las pruebas del ciclo, que cuentan exactamente
+    // que estatutos recibe el handler y no quieren veinte de regalo.
     ReplCommand(
             RequestHandler handler,
             InputStream in,
             PrintStream out
     ) {
+        this(handler, in, out, Optional.empty());
+    }
+
+    ReplCommand(
+            RequestHandler handler,
+            InputStream in,
+            PrintStream out,
+            Optional<Path> baseGraph
+    ) {
         this.injectedHandler = handler;
         this.in = in;
         this.out = out;
+        this.baseGraph = baseGraph;
     }
 
     @Override
@@ -66,6 +87,7 @@ public final class ReplCommand implements Callable<Integer> {
             RequestHandler activeHandler
     ) throws IOException {
         out.println(Banner.welcome());
+        baseGraph.ifPresent(path -> loadBaseGraph(path, activeHandler));
 
         try (
                 BufferedReader reader =
@@ -78,6 +100,36 @@ public final class ReplCommand implements Callable<Integer> {
 
         out.println("Bye!");
         return 0;
+    }
+
+    // Carga el grafo con el que abre la sesion. Que falte no es un fallo: el
+    // jar se puede correr desde otra carpeta, y ahi se arranca con el grafo
+    // vacio y se avisa.
+    private void loadBaseGraph(
+            Path path,
+            RequestHandler activeHandler
+    ) {
+        if (!Files.exists(path)) {
+            out.println(
+                    "No base graph at \"%s\": starting with an empty graph."
+                            .formatted(path)
+            );
+            return;
+        }
+
+        out.println(summary(LoadCommand.run(path.toString(), activeHandler)));
+    }
+
+    // .load imprime una linea por estatuto, y el grafo trae veinte: serian
+    // veinte lineas antes del primer prompt. Se resume a una, y si algo fallo
+    // se muestran solo los errores, que es lo unico que hay que leer.
+    static String summary(String output) {
+        var lines = output.lines().toList();
+        var errors = lines.stream().filter(line -> line.startsWith("ERROR")).toList();
+
+        return errors.isEmpty()
+                ? "Base graph loaded: %d statements.".formatted(lines.size())
+                : String.join(System.lineSeparator(), errors);
     }
 
     private void loop(

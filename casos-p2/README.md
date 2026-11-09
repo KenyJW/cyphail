@@ -16,15 +16,16 @@ Desde la raíz del proyecto:
 
 ```text
 java -jar target/cyphail.jar repl
->>> .load "casos-p2/grafo.cyphail"
+Base graph loaded: 22 statements.
 >>> .load "casos-p2/caso-01-relacion-sin-tipo.cyphail"
 ```
 
-El grafo **no** se carga solo al arrancar: el primer `.load` es el paso uno de la demo.
+El grafo se carga solo al abrir la sesión, como pide la guía: no hace falta ningún
+`.load` previo.
 
-**Para volver al estado inicial hay que reiniciar el REPL, no recargar el grafo.**
-Un segundo `.load "casos-p2/grafo.cyphail"` duplica los datos: las 5 personas pasan
-a ser 10, y los conteos de abajo dejan de cuadrar.
+**Para volver al estado inicial hay que reiniciar el REPL.** Hacer
+`.load "casos-p2/grafo.cyphail"` a mano **duplica** los datos, porque el grafo ya está
+cargado: las 5 personas pasan a ser 10 y los conteos de abajo dejan de cuadrar.
 
 ## Los casos
 

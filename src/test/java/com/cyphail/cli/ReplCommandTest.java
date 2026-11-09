@@ -11,6 +11,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -126,5 +128,64 @@ class ReplCommandTest {
         int exitCode = repl.call();
 
         return new ReplRun(outBuffer.toString(StandardCharsets.UTF_8), exitCode);
+    }
+    // ---------- el grafo base ----------
+
+    @Test
+    void elGrafoBaseSeCargaAlAbrirLaSesion() throws Exception {
+        // la guia pide que los casos corran contra un grafo ya disponible,
+        // sin que el usuario tenga que hacer .load a mano
+        List<String> received = new ArrayList<>();
+
+        var out = new ByteArrayOutputStream();
+        var repl = new ReplCommand(
+                input -> {
+                    received.add(input);
+                    return CyphailResponse.ok("ok");
+                },
+                new ByteArrayInputStream(".exit\n".getBytes(StandardCharsets.UTF_8)),
+                new PrintStream(out, true, StandardCharsets.UTF_8),
+                Optional.of(Path.of("casos-p2/grafo.cyphail")));
+
+        repl.call();
+
+        var salida = out.toString(StandardCharsets.UTF_8);
+
+        assertTrue(salida.contains("Base graph loaded:"), salida);
+        assertTrue(received.size() > 15, "llegaron " + received.size() + " estatutos");
+        assertTrue(received.get(0).startsWith("CREATE"), received.get(0));
+    }
+
+    @Test
+    void sinGrafoBaseLaSesionArrancaIgual() throws Exception {
+        // correr el jar desde otra carpeta no es un fallo
+        List<String> received = new ArrayList<>();
+
+        var out = new ByteArrayOutputStream();
+        var repl = new ReplCommand(
+                input -> {
+                    received.add(input);
+                    return CyphailResponse.ok("ok");
+                },
+                new ByteArrayInputStream(".exit\n".getBytes(StandardCharsets.UTF_8)),
+                new PrintStream(out, true, StandardCharsets.UTF_8),
+                Optional.of(Path.of("casos-p2/no-existe.cyphail")));
+
+        assertEquals(0, repl.call());
+        assertTrue(out.toString(StandardCharsets.UTF_8).contains("starting with an empty graph"));
+        assertTrue(received.isEmpty());
+    }
+
+    @Test
+    void elResumenNoVuelcaUnaLineaPorEstatuto() {
+        assertEquals("Base graph loaded: 3 statements.",
+                ReplCommand.summary("OK.\nOK.\nOK."));
+    }
+
+    @Test
+    void siAlgoFallaElResumenMuestraSoloLosErrores() {
+        // un OK de mas no se lee; un error si
+        assertEquals("ERROR: algo paso",
+                ReplCommand.summary("OK.\nERROR: algo paso\nOK."));
     }
 }

@@ -88,12 +88,18 @@ cyphail.bat repl
 Los 16 casos de prueba están en [`casos-p2/`](casos-p2/README.md), uno por archivo,
 junto con el grafo contra el que corren. Trece vienen del documento de casos de
 referencia del profesor; los otros tres cubren `SET` y `REMOVE`, que ese documento no
-incluye y el SPEC sí exige. El primer paso de la demo es cargar el grafo:
+incluye y el SPEC sí exige.
+
+El REPL carga `casos-p2/grafo.cyphail` al abrir la sesión, así que los casos corren
+de una vez:
 
 ```text
->>> .load "casos-p2/grafo.cyphail"
+java -jar target/cyphail.jar repl
+Base graph loaded: 22 statements.
 >>> .load "casos-p2/caso-01-relacion-sin-tipo.cyphail"
 ```
+
+Volver a cargar el grafo a mano duplica los datos. Para reiniciar, se cierra el REPL.
 
 El índice de la carpeta trae la tabla de los 16 casos, las filas que devuelve cada uno
 y el orden recomendado, porque seis de ellos modifican el grafo.
