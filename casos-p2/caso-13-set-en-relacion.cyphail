@@ -1,0 +1,7 @@
+// Fuente: SPEC de P2, seccion II.4, ejemplo "SET r.grade = 9.5".
+// Ejercita: SET sobre una propiedad de RELACION, no de nodo, con un decimal.
+// Es el unico caso donde se escribe sobre una relacion.
+// MODIFICA EL GRAFO: cambia el porcentaje de la sociedad de Marta en Acme.
+MATCH (p:Persona {nombre: 'Marta'})-[s:SOCIO_DE]->(e:Empresa {nombre: 'Acme'})
+SET s.porcentaje = 41.25
+RETURN p.nombre, s.porcentaje, e.nombre;

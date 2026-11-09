@@ -1,8 +1,14 @@
 # Casos de prueba de P2
 
-Los 13 casos de `EIF400-II-2026-Cypahil-P2-10-Casos_Prueba_Unitarios.pdf`, uno por
-archivo, con el texto literal del profesor. El grafo contra el que corren está en
-`grafo.cyphail`.
+Los casos de prueba de P2, uno por archivo, con el grafo contra el que corren en
+`grafo.cyphail`. Vienen de dos fuentes distintas:
+
+- **Casos 1 a 10, 8b y 8c:** el documento de referencia
+  `EIF400-II-2026-Cypahil-P2-10-Casos_Prueba_Unitarios.pdf`, con el texto literal del
+  profesor. Ese documento cubre `MATCH`, `CREATE`, `DELETE`, `WHERE` y `RETURN`.
+- **Casos 11 a 13:** escritos por nosotros a partir del SPEC de P2, sección II.4,
+  porque el documento de referencia **no incluye `SET` ni `REMOVE`** y son features
+  obligatorias del sprint.
 
 ## Cómo correrlos
 
@@ -41,8 +47,11 @@ recién cargado.
 | 7 | `caso-07-create-con-match.cyphail` | **modifica:** `CREATE` que reusa variables del `MATCH` | 0 |
 | 8 | `caso-08-create-sin-match.cyphail` | **modifica:** `CREATE` sin `MATCH`, `RETURN a, r, e` | 1 |
 | 9 | `caso-09-delete-relacion.cyphail` | **modifica:** `DELETE` de una relación con `WHERE` | 0 |
+| 11 | `caso-11-set-multiple.cyphail` | **modifica:** `SET` con varias asignaciones | 1 |
+| 12 | `caso-12-remove-multiple.cyphail` | **modifica:** `REMOVE` de varias propiedades | 1 |
+| 13 | `caso-13-set-en-relacion.cyphail` | **modifica:** `SET` sobre una relación, con decimal | 1 |
 
-Los tres últimos van al final a propósito. El 9 borra las relaciones `CONOCE`
+Los seis últimos van al final a propósito. El 9 borra las relaciones `CONOCE`
 anteriores al 2000, así que si se corre antes, los casos 2, 3b y 8c devuelven menos
 filas de las que dice la tabla.
 
@@ -53,6 +62,8 @@ Dos conteos que conviene poder explicar:
 - **10 da 2 y no 1.** Las dos filas son Ana–Marta–Acme, pero con distinto `k.desde`
   (2012 y 2015): `(p)-[k:CONOCE]-(q)` va sin dirección y engancha las dos relaciones
   que existen entre Ana y Marta.
+- **12 devuelve `Ana null null`.** Retornar una propiedad recién quitada da `null` y la
+  fila sobrevive; no desaparece. Es el comportamiento correcto y conviene mostrarlo.
 
 ## Sobre el grafo
 

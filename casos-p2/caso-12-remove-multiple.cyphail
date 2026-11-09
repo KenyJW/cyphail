@@ -1,0 +1,7 @@
+// Fuente: SPEC de P2, seccion II.4 (no esta en el documento de casos de referencia).
+// Ejercita: REMOVE de varias propiedades separadas por coma, y que retornar una
+// propiedad ya quitada de null en vez de hacer desaparecer la fila.
+// MODIFICA EL GRAFO: le quita ciudad y activo a Ana.
+MATCH (p:Persona {nombre: 'Ana'})
+REMOVE p.ciudad, p.activo
+RETURN p.nombre, p.ciudad, p.activo;

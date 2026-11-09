@@ -1,0 +1,7 @@
+// Fuente: SPEC de P2, seccion II.4 (no esta en el documento de casos de referencia).
+// Ejercita: SET con varias asignaciones separadas por coma sobre un nodo, con valores
+// de distinto tipo (entero y string).
+// MODIFICA EL GRAFO: cambia la edad y la ciudad de Luis.
+MATCH (p:Persona {nombre: 'Luis'})
+SET p.edad = 29, p.ciudad = 'Cartago'
+RETURN p.nombre, p.edad, p.ciudad;

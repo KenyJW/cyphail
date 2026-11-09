@@ -85,17 +85,18 @@ cyphail.bat repl
 
 ## Casos de prueba de P2
 
-Los 13 casos de la guía del profesor están en [`casos-p2/`](casos-p2/README.md), uno
-por archivo, junto con el grafo contra el que corren. El primer paso de la demo es
-cargar el grafo:
+Los 16 casos de prueba están en [`casos-p2/`](casos-p2/README.md), uno por archivo,
+junto con el grafo contra el que corren. Trece vienen del documento de casos de
+referencia del profesor; los otros tres cubren `SET` y `REMOVE`, que ese documento no
+incluye y el SPEC sí exige. El primer paso de la demo es cargar el grafo:
 
 ```text
 >>> .load "casos-p2/grafo.cyphail"
 >>> .load "casos-p2/caso-01-relacion-sin-tipo.cyphail"
 ```
 
-El índice de la carpeta trae la tabla de los 13 casos, las filas que devuelve cada uno
-y el orden recomendado, porque tres de ellos modifican el grafo.
+El índice de la carpeta trae la tabla de los 16 casos, las filas que devuelve cada uno
+y el orden recomendado, porque seis de ellos modifican el grafo.
 
 ## El REPL
 
