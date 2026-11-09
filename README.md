@@ -572,6 +572,8 @@ En la parte de José Moya Pérez, se utilizó como apoyo en la generación de c�
 
 Los comentarios del código fueron redactados con apoyo de IA para mantener una documentación uniforme en todo el proyecto.
 
+En `casos-p2/`, los casos 1 a 10, 8b y 8c son el texto literal del documento de casos de referencia del profesor. Los casos 11, 12 y 13 fueron redactados con apoyo de IA a partir del SPEC de P2, sección II.4, porque ese documento no cubre `SET` ni `REMOVE`. El grafo `grafo.cyphail` y el índice de la carpeta también fueron elaborados con apoyo de IA.
+
 Los tipos base de los combinadores y algunas implementaciones siguen el modelo presentado por el profesor durante las clases, lo cual se acredita en los encabezados correspondientes.
 
 Cada cambio fue integrado y comprobado mediante pruebas automatizadas o ejecuciones manuales. Los integrantes deben comprender y poder explicar el código que presentan durante la defensa.
