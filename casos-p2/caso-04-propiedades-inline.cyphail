@@ -1,0 +1,3 @@
+// Ejercita: mapa de propiedades inline en la relacion ({clave: valor}) y acceso r.prop en RETURN.
+MATCH (a:Persona)-[r:CONOCE {desde: 2015}]->(b:Persona)
+RETURN a.nombre, b.nombre, r.desde;

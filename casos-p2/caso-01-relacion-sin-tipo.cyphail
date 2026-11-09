@@ -1,0 +1,3 @@
+// Ejercita: sintaxis basica -[var]->, variable de relacion sin tipo ni propiedades, RETURN de una relacion completa.
+MATCH (p:Person)-[r]->(q:Person)
+RETURN r;

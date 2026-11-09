@@ -1,0 +1,6 @@
+// Ejercita: simulacion de encadenamiento con dos patrones separados por coma que comparten la variable e.
+// El segundo patron reutiliza e sin repetir etiqueta. Cada patron se parsea de forma independiente (nodo, relacion, nodo).
+MATCH (p:Persona)-[:TRABAJA_EN]->(e:Empresa),
+      (c:Persona)-[:TRABAJA_EN]->(e)
+WHERE p.nombre <> c.nombre
+RETURN p.nombre, c.nombre, e.nombre;

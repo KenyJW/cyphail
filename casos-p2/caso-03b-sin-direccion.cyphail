@@ -1,0 +1,3 @@
+// Ejercita: relacion sin direccion (-). Tercera variante de direccion.
+MATCH (a:Persona)-[r:CONOCE]-(b:Persona)
+RETURN a.nombre, b.nombre;

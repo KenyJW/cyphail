@@ -1,0 +1,3 @@
+// Ejercita: direccion inversa (<-). La direccion del arrow como tipo explicito (OUT | IN | NONE) en AST.
+MATCH (e:Empresa)<-[r:TRABAJA_EN]-(p:Persona)
+RETURN p.nombre, e.nombre;

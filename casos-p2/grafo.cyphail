@@ -16,6 +16,16 @@ CREATE (:Persona {nombre: "Luis", edad: 28, activo: false, ciudad: "San Jose"});
 CREATE (:Persona {nombre: "Marta", edad: 45, activo: true, ciudad: "Alajuela"});
 CREATE (:Persona {nombre: "Carlos", edad: 19, activo: true, ciudad: "Cartago"});
 
+// Sofia es Dev fuera de CR. Existe por el caso 6: su WHERE es
+// "t.desde >= 2018 OR NOT e.pais = 'CR'", y sin ella la segunda rama
+// del OR nunca se ejercitaria.
+CREATE (:Persona {nombre: "Sofia", edad: 26, activo: true, ciudad: "Limon"});
+
+// El caso 1 busca (p:Person)-[r]->(q:Person), con la etiqueta en ingles.
+// Son los unicos nodos Person del grafo y estan solo para ese caso.
+CREATE (:Person {nombre: "Jane", edad: 31});
+CREATE (:Person {nombre: "John", edad: 27});
+
 // ---------- Empresas ----------
 // Una de CR y otra de fuera, para que un NOT sobre el pais deje una sola.
 
@@ -42,6 +52,13 @@ CREATE (a)-[:CONOCE {desde: 2005}]->(b);
 MATCH (a:Persona {nombre: "Carlos"}), (b:Persona {nombre: "Ana"})
 CREATE (a)-[:CONOCE {desde: 2021}]->(b);
 
+// El 2015 existe por el caso 4, que filtra por {desde: 2015} inline.
+MATCH (a:Persona {nombre: "Marta"}), (b:Persona {nombre: "Ana"})
+CREATE (a)-[:CONOCE {desde: 2015}]->(b);
+
+MATCH (a:Person {nombre: "Jane"}), (b:Person {nombre: "John"})
+CREATE (a)-[:CONOCE {desde: 2016}]->(b);
+
 // ---------- TRABAJA_EN ----------
 
 MATCH (p:Persona {nombre: "Ana"}), (e:Empresa {nombre: "Acme"})
@@ -52,6 +69,9 @@ CREATE (p)-[:TRABAJA_EN {cargo: "QA", desde: 2015}]->(e);
 
 MATCH (p:Persona {nombre: "Marta"}), (e:Empresa {nombre: "Globex"})
 CREATE (p)-[:TRABAJA_EN {cargo: "Gerente", desde: 2008}]->(e);
+
+MATCH (p:Persona {nombre: "Sofia"}), (e:Empresa {nombre: "Globex"})
+CREATE (p)-[:TRABAJA_EN {cargo: "Dev", desde: 2016}]->(e);
 
 // ---------- SOCIO_DE ----------
 // El porcentaje es decimal a proposito: es lo que ejercita DecimalLiteral.

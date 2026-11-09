@@ -1,0 +1,4 @@
+// Ejercita: CREATE sin MATCH previo, creacion simultanea de nodos y relacion, valor booleano, RETURN de nodos y relacion completos.
+// MODIFICA EL GRAFO: crea nodos nuevos, aunque ya existan Marta y Acme.
+CREATE (a:Persona {nombre: 'Marta'})-[r:TRABAJA_EN {cargo: 'Dev', activo: true}]->(e:Empresa {nombre: 'Acme'})
+RETURN a, r, e;

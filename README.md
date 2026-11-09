@@ -83,6 +83,20 @@ cyphail.bat repl
 
 `cyphail.bat` verifica que Java esté disponible y reenvía los argumentos al JAR. No contiene lógica del parser, compilador o motor.
 
+## Casos de prueba de P2
+
+Los 13 casos de la guía del profesor están en [`casos-p2/`](casos-p2/README.md), uno
+por archivo, junto con el grafo contra el que corren. El primer paso de la demo es
+cargar el grafo:
+
+```text
+>>> .load "casos-p2/grafo.cyphail"
+>>> .load "casos-p2/caso-01-relacion-sin-tipo.cyphail"
+```
+
+El índice de la carpeta trae la tabla de los 13 casos, las filas que devuelve cada uno
+y el orden recomendado, porque tres de ellos modifican el grafo.
+
 ## El REPL
 
 Para iniciar el REPL:
@@ -280,6 +294,12 @@ de verdad parsea; sin eso la recursión no terminaría.
 
 Una variable de nodo sí puede repetirse: `MATCH (a)-[r]->(b) MATCH (b)-[s]->(c)` significa
 que es el mismo nodo, y es la forma de encadenar dos patrones.
+
+Una variable reutilizada con otra etiqueta **no es un error: las etiquetas se suman**.
+La guía deja esa decisión abierta y esta es la que tomamos, porque es la semántica de
+Cypher: `MATCH (e:Empresa), (e:Ciudad)` pide un nodo que sea las dos cosas, así que
+devuelve vacío salvo que exista uno con ambas etiquetas. No se fusiona quedándose con
+la última ni se descarta la segunda.
 
 Las dos últimas existen por el mismo motivo: el codegen convierte cada variable del query
 en una de Prolog con el prefijo `__` (`a` pasa a `__A`). Un nombre usado como nodo y como
@@ -539,9 +559,11 @@ Para P2 el generador soporta:
 
 Se utilizó IA, incluyendo Claude Code de Anthropic y ChatGPT de OpenAI, como apoyo para estudiar conceptos, proponer implementaciones, detectar errores y revisar código.
 
-En la parte de Kenny Jiménez Wang, se utilizó como apoyo en componentes del lexer, combinadores, parser, AST, analizador, `.tree`, REPL multilínea y `.load`.
+En la parte de Kenny Jiménez Wang, se utilizó como apoyo en componentes del lexer, combinadores, parser, AST, analizador, `.tree`, REPL multilínea y `.load`. En P2 se sumaron los patrones de relaciones y su dirección, `SET`, `REMOVE`, los operadores `AND`, `OR`, `NOT`, `>=` y `<=`, los paréntesis en el `WHERE`, la tabla de variables, las validaciones de semántica estática nuevas y los archivos de `casos-p2/`.
 
-En la parte de José Moya Pérez, se utilizó como apoyo en el motor fake, lectura de respuestas JSON, generación de código Prolog, comunicación mediante MQI, framing del protocolo, manejo de sockets, decodificación de respuestas y pruebas de integración con SWI-Prolog.
+En la parte de José Moya Pérez, se utilizó como apoyo en la generación de código Prolog, la biblioteca `.pl` del motor, la comunicación mediante MQI, el framing del protocolo, el manejo de sockets, la decodificación de respuestas JSON y las pruebas de integración con SWI-Prolog. El motor fake de P1 fue eliminado en P2.
+
+Los comentarios del código fueron redactados con apoyo de IA para mantener una documentación uniforme en todo el proyecto.
 
 Los tipos base de los combinadores y algunas implementaciones siguen el modelo presentado por el profesor durante las clases, lo cual se acredita en los encabezados correspondientes.
 

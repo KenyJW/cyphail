@@ -1,0 +1,3 @@
+// Ejercita: tipo de relacion (:TIPO), relacion sin variable, etiquetas de nodo, RETURN de propiedades de nodo.
+MATCH (a:Persona)-[:CONOCE]->(b:Persona)
+RETURN a.nombre, b.nombre;

@@ -1,0 +1,7 @@
+// Ejercita (integrador): tres patrones con una sola relacion cada uno, separados por coma y con variables compartidas (p, q, e);
+// propiedades inline, WHERE con parentesis y AND/OR/NOT, decimales, RETURN mixto de nodos y relaciones.
+MATCH (p:Persona {activo: true})-[t:TRABAJA_EN {cargo: 'Dev'}]->(e:Empresa),
+      (q:Persona)-[s:SOCIO_DE]->(e),
+      (p)-[k:CONOCE]-(q)
+WHERE (t.desde >= 2018 OR s.porcentaje > 25.5) AND NOT k.desde = 2020
+RETURN p.nombre, q.nombre, e.nombre, t.cargo, s.porcentaje, k.desde;

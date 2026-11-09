@@ -1,0 +1,3 @@
+// Ejercita: patrones desconectados, sin variables compartidas. Es valido y produce producto cartesiano; verifica que el join no asume conexion.
+MATCH (a)-[r]->(b), (c)-[s]->(d)
+RETURN r, s;

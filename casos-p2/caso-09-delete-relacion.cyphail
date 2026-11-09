@@ -1,0 +1,5 @@
+// Ejercita: DELETE apuntando a una relacion (no a un nodo) con WHERE. Regla semantica: borrar una relacion nunca afecta a los nodos.
+// MODIFICA EL GRAFO: borra las relaciones CONOCE anteriores al 2000.
+MATCH (a:Persona)-[r:CONOCE]->(b:Persona)
+WHERE r.desde < 2000
+DELETE r;

@@ -1,0 +1,4 @@
+// Ejercita: WHERE sobre propiedades de relacion y de nodo a la vez; el resolvedor de variables debe distinguir nodos de relaciones.
+MATCH (a:Persona)-[r:CONOCE]->(b:Persona)
+WHERE r.desde > 2010 AND b.edad >= 30
+RETURN a.nombre, b.nombre, r.desde;

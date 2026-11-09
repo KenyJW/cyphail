@@ -1,0 +1,4 @@
+// Ejercita: MATCH con patrones separados por coma, CREATE que reutiliza variables ya enlazadas (no crea nodos nuevos), propiedades de distinto tipo (entero y string).
+// MODIFICA EL GRAFO: agrega una relacion CONOCE entre Ana y Luis.
+MATCH (a:Persona {nombre: 'Ana'}), (b:Persona {nombre: 'Luis'})
+CREATE (a)-[:CONOCE {desde: 2020, nivel: 'amigo'}]->(b);

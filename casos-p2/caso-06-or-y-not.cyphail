@@ -1,0 +1,4 @@
+// Ejercita: propiedades inline + WHERE sobre la misma relacion, operadores OR/NOT, RETURN con varias propiedades de relacion.
+MATCH (p:Persona)-[t:TRABAJA_EN {cargo: 'Dev'}]->(e:Empresa)
+WHERE t.desde >= 2018 OR NOT e.pais = 'CR'
+RETURN p.nombre, e.nombre, t.cargo, t.desde;
